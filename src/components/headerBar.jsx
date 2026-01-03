@@ -10,7 +10,7 @@ function HeaderBar(){
 
     return (
         <div className="header-bar">
-            <h1>Neuroimaging Workflow Generator</h1>
+            <h1>fMRIbuild</h1>
             {/*ℹ️ */}
             <span className="header-span" onClick={handleShowInfo}>[how-to]</span>
             <a className="header-span header-link" href="https://github.com/KunaalAgarwal/fMRIbuild" target="_blank">[github]</a>
