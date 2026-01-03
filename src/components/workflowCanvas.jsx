@@ -49,8 +49,10 @@ function WorkflowCanvas({ workflowItems, updateCurrentWorkspaceItems, onSetWorkf
           }
         }));
         // Restore edges with styling and data (mappings)
-        const initialEdges = (workflowItems.edges || []).map((edge) => ({
+        const initialEdges = (workflowItems.edges || []).map((edge, index) => ({
           ...edge,
+          // Ensure edge has an ID (fallback for old saved data)
+          id: edge.id || `${edge.source}-${edge.target}-${index}`,
           animated: true,
           markerEnd: {
             type: MarkerType.ArrowClosed,
@@ -280,6 +282,7 @@ function WorkflowCanvas({ workflowItems, updateCurrentWorkspaceItems, onSetWorkf
       position: node.position,
     })),
     edges: edges.map((edge) => ({
+      id: edge.id,  // Required for ReactFlow to manage edges
       source: edge.source,
       target: edge.target,
       data: edge.data,  // Include mapping data
