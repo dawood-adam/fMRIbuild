@@ -13,7 +13,8 @@ import '../styles/workflowCanvas.css';
 import '../styles/actionsBar.css';
 
 import NodeComponent from './NodeComponent';
-import EdgeMappingModal from './EdgeMappingModal';
+import EdgeMappingModal, { checkTypeCompatibility } from './EdgeMappingModal';
+import { TOOL_MAP } from '../../public/cwl/toolMap.js';
 
 // Define node types.
 const nodeTypes = { default: NodeComponent };
@@ -99,9 +100,33 @@ function WorkflowCanvas({ workflowItems, updateCurrentWorkspaceItems, onSetWorkf
         const targetNode = nodes.find(n => n.id === connection.target);
 
         if (sourceNode && targetNode) {
+          // Check for type compatibility between source outputs and target inputs
+          let hasTypeMismatch = false;
+          const sourceTool = TOOL_MAP[sourceNode.data.label];
+          const targetTool = TOOL_MAP[targetNode.data.label];
+
+          if (sourceTool && targetTool) {
+            // Get primary output type from source
+            const primaryOutput = sourceTool.primaryOutputs?.[0];
+            const outputType = primaryOutput ? sourceTool.outputs[primaryOutput]?.type : null;
+
+            // Find first passthrough input from target
+            const passthroughInput = Object.entries(targetTool.requiredInputs || {})
+              .find(([_, def]) => def.passthrough);
+            const inputType = passthroughInput?.[1]?.type;
+
+            if (outputType && inputType) {
+              const { compatible } = checkTypeCompatibility(outputType, inputType);
+              if (!compatible) {
+                hasTypeMismatch = true;
+              }
+            }
+          }
+
           setEdgeModalData({
             sourceNode: { id: sourceNode.id, label: sourceNode.data.label },
-            targetNode: { id: targetNode.id, label: targetNode.data.label }
+            targetNode: { id: targetNode.id, label: targetNode.data.label },
+            hasTypeMismatch
           });
           setShowEdgeModal(true);
         }
@@ -330,6 +355,7 @@ function WorkflowCanvas({ workflowItems, updateCurrentWorkspaceItems, onSetWorkf
             sourceNode={edgeModalData?.sourceNode}
             targetNode={edgeModalData?.targetNode}
             existingMappings={edgeModalData?.existingMappings || []}
+            hasTypeMismatch={edgeModalData?.hasTypeMismatch || false}
         />
       </div>
   );

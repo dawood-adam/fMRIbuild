@@ -4,6 +4,40 @@ import { TOOL_MAP } from '../../public/cwl/toolMap.js';
 import '../styles/edgeMappingModal.css';
 
 /**
+ * Type compatibility checking utilities
+ */
+const getBaseType = (type) => {
+    // Remove nullable (?) and array ([]) modifiers
+    return type?.replace(/[\?\[\]]/g, '') || 'File';
+};
+
+const isArrayType = (type) => type?.includes('[]') || false;
+
+const checkTypeCompatibility = (outputType, inputType) => {
+    if (!outputType || !inputType) return { compatible: true };
+
+    const outBase = getBaseType(outputType);
+    const inBase = getBaseType(inputType);
+    const outArray = isArrayType(outputType);
+    const inArray = isArrayType(inputType);
+
+    // Array mismatch check
+    if (outArray !== inArray) {
+        return { compatible: false, reason: `Array mismatch: ${outputType} → ${inputType}` };
+    }
+
+    // Base type check (File vs non-File)
+    if (outBase !== inBase) {
+        return { compatible: false, reason: `Type mismatch: ${outputType} → ${inputType}` };
+    }
+
+    return { compatible: true };
+};
+
+// Export for use in workflowCanvas
+export { checkTypeCompatibility, getBaseType, isArrayType };
+
+/**
  * Get tool inputs/outputs, with fallback for undefined tools
  */
 const getToolIO = (toolLabel) => {
@@ -39,7 +73,8 @@ const EdgeMappingModal = ({
     onSave,
     sourceNode,
     targetNode,
-    existingMappings = []
+    existingMappings = [],
+    hasTypeMismatch = false
 }) => {
     const [mappings, setMappings] = useState([]);
     const [selectedOutput, setSelectedOutput] = useState(null);
@@ -163,6 +198,19 @@ const EdgeMappingModal = ({
         return mappings.some(m => m.targetInput === inputName);
     };
 
+    // Check type compatibility for a specific output-input pair
+    const getMappingCompatibility = (outputName, inputName) => {
+        const output = sourceIO.outputs.find(o => o.name === outputName);
+        const input = targetIO.inputs.find(i => i.name === inputName);
+        return checkTypeCompatibility(output?.type, input?.type);
+    };
+
+    // Check if any current mappings have type issues
+    const hasIncompatibleMappings = mappings.some(m => {
+        const { compatible } = getMappingCompatibility(m.sourceOutput, m.targetInput);
+        return !compatible;
+    });
+
     if (!sourceNode || !targetNode) return null;
 
     return (
@@ -179,6 +227,14 @@ const EdgeMappingModal = ({
                 </Modal.Title>
             </Modal.Header>
             <Modal.Body>
+                {/* Type mismatch warning banner */}
+                {(hasTypeMismatch || hasIncompatibleMappings) && (
+                    <div className="type-warning-banner">
+                        <span className="warning-icon">⚠️</span>
+                        <span>Type mismatch detected. The output and input types may not be compatible.</span>
+                    </div>
+                )}
+
                 <div className="mapping-container" ref={containerRef}>
                     {/* Outputs Column */}
                     <div className="io-column outputs-column">
@@ -186,46 +242,63 @@ const EdgeMappingModal = ({
                             Outputs ({sourceNode.label})
                             {sourceIO.isGeneric && <span className="generic-badge">generic</span>}
                         </div>
-                        {sourceIO.outputs.map(output => (
-                            <div
-                                key={output.name}
-                                ref={el => outputRefs.current[output.name] = el}
-                                className={`io-item output-item ${
-                                    selectedOutput === output.name ? 'selected' : ''
-                                } ${isOutputMapped(output.name) ? 'mapped' : ''}`}
-                                onClick={() => handleOutputClick(output.name)}
-                            >
-                                <span className="io-name">{output.label}</span>
-                                <span className="io-type">{output.type}</span>
-                            </div>
-                        ))}
+                        {sourceIO.outputs.map(output => {
+                            // Check if this output is mapped to an incompatible input
+                            const mapping = mappings.find(m => m.sourceOutput === output.name);
+                            const compatibility = mapping
+                                ? getMappingCompatibility(output.name, mapping.targetInput)
+                                : { compatible: true };
+
+                            return (
+                                <div
+                                    key={output.name}
+                                    ref={el => outputRefs.current[output.name] = el}
+                                    className={`io-item output-item ${
+                                        selectedOutput === output.name ? 'selected' : ''
+                                    } ${isOutputMapped(output.name) ? 'mapped' : ''} ${
+                                        !compatibility.compatible ? 'type-warning' : ''
+                                    }`}
+                                    onClick={() => handleOutputClick(output.name)}
+                                >
+                                    <span className="io-name">{output.label}</span>
+                                    <span className="io-type">{output.type}</span>
+                                    {!compatibility.compatible && <span className="warning-icon" title={compatibility.reason}>⚠️</span>}
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Connection Lines SVG */}
                     <svg className="connection-lines">
-                        {linePositions.map(pos => (
-                            <g key={pos.key} onClick={() => {
-                                const mapping = mappings.find(
-                                    m => `${m.sourceOutput}-${m.targetInput}` === pos.key
-                                );
-                                if (mapping) handleLineClick(mapping);
-                            }}>
-                                <line
-                                    x1={pos.x1}
-                                    y1={pos.y1}
-                                    x2={pos.x2}
-                                    y2={pos.y2}
-                                    className="connection-line"
-                                />
-                                <line
-                                    x1={pos.x1}
-                                    y1={pos.y1}
-                                    x2={pos.x2}
-                                    y2={pos.y2}
-                                    className="connection-line-hitarea"
-                                />
-                            </g>
-                        ))}
+                        {linePositions.map(pos => {
+                            const mapping = mappings.find(
+                                m => `${m.sourceOutput}-${m.targetInput}` === pos.key
+                            );
+                            const compatibility = mapping
+                                ? getMappingCompatibility(mapping.sourceOutput, mapping.targetInput)
+                                : { compatible: true };
+
+                            return (
+                                <g key={pos.key} onClick={() => {
+                                    if (mapping) handleLineClick(mapping);
+                                }}>
+                                    <line
+                                        x1={pos.x1}
+                                        y1={pos.y1}
+                                        x2={pos.x2}
+                                        y2={pos.y2}
+                                        className={`connection-line ${!compatibility.compatible ? 'warning-line' : ''}`}
+                                    />
+                                    <line
+                                        x1={pos.x1}
+                                        y1={pos.y1}
+                                        x2={pos.x2}
+                                        y2={pos.y2}
+                                        className="connection-line-hitarea"
+                                    />
+                                </g>
+                            );
+                        })}
                     </svg>
 
                     {/* Inputs Column */}
@@ -234,19 +307,36 @@ const EdgeMappingModal = ({
                             Inputs ({targetNode.label})
                             {targetIO.isGeneric && <span className="generic-badge">generic</span>}
                         </div>
-                        {targetIO.inputs.map(input => (
-                            <div
-                                key={input.name}
-                                ref={el => inputRefs.current[input.name] = el}
-                                className={`io-item input-item ${
-                                    isInputMapped(input.name) ? 'mapped' : ''
-                                } ${selectedOutput ? 'clickable' : ''}`}
-                                onClick={() => handleInputClick(input.name)}
-                            >
-                                <span className="io-name">{input.label}</span>
-                                <span className="io-type">{input.type}</span>
-                            </div>
-                        ))}
+                        {targetIO.inputs.map(input => {
+                            // Check if this input is mapped from an incompatible output
+                            const mapping = mappings.find(m => m.targetInput === input.name);
+                            const compatibility = mapping
+                                ? getMappingCompatibility(mapping.sourceOutput, input.name)
+                                : { compatible: true };
+
+                            // Also check if currently selected output would be incompatible
+                            const selectedCompatibility = selectedOutput
+                                ? getMappingCompatibility(selectedOutput, input.name)
+                                : { compatible: true };
+
+                            return (
+                                <div
+                                    key={input.name}
+                                    ref={el => inputRefs.current[input.name] = el}
+                                    className={`io-item input-item ${
+                                        isInputMapped(input.name) ? 'mapped' : ''
+                                    } ${selectedOutput ? 'clickable' : ''} ${
+                                        !compatibility.compatible ? 'type-warning' : ''
+                                    } ${selectedOutput && !selectedCompatibility.compatible ? 'type-warning-preview' : ''}`}
+                                    onClick={() => handleInputClick(input.name)}
+                                    title={!selectedCompatibility.compatible ? selectedCompatibility.reason : ''}
+                                >
+                                    <span className="io-name">{input.label}</span>
+                                    <span className="io-type">{input.type}</span>
+                                    {!compatibility.compatible && <span className="warning-icon" title={compatibility.reason}>⚠️</span>}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
