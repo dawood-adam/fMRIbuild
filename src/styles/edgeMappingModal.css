@@ -49,7 +49,7 @@
     max-width: 42%;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 }
 
 .column-header {
@@ -78,8 +78,8 @@
 
 .io-item {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 6px;
     padding: 10px 14px;
     background-color: #2a2a2a;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -118,11 +118,22 @@
     border-style: solid;
 }
 
+/* IO item layout */
+.io-item-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
 .io-name {
     font-family: 'Roboto Mono', monospace;
     font-size: 0.8rem;
     font-weight: 500;
     color: #d0d0d0;
+    flex: 1;
+    min-width: 0;
 }
 
 .io-type {
@@ -132,6 +143,22 @@
     background-color: rgba(255, 255, 255, 0.04);
     padding: 3px 7px;
     border-radius: 4px;
+    flex-shrink: 0;
+}
+
+/* File extension display */
+.io-extensions {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.6rem;
+    color: #777;
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 3px 8px;
+    border-radius: 3px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    align-self: flex-start;
 }
 
 .connection-lines {
@@ -203,7 +230,7 @@ g:hover .connection-line {
     color: #ddd;
 }
 
-/* Type warning styles */
+/* Warning banner */
 .type-warning-banner {
     background-color: rgba(255, 193, 7, 0.15);
     border: 1px solid rgba(255, 193, 7, 0.4);
@@ -221,25 +248,35 @@ g:hover .connection-line {
     font-size: 1rem;
 }
 
-.io-item.type-warning {
+/* Mismatch warning styles - unified for type and extension mismatches */
+.io-item.mismatch-warning {
     border-color: rgba(255, 193, 7, 0.5) !important;
     background-color: rgba(255, 193, 7, 0.1);
 }
 
-.io-item.type-warning .io-name {
+.io-item.mismatch-warning .io-name {
     color: #ffc107;
 }
 
-.io-item.type-warning-preview {
+.io-item.mismatch-warning-preview {
     border-color: rgba(255, 193, 7, 0.3);
     border-style: dashed;
 }
 
 .io-item .warning-icon {
     font-size: 0.85rem;
-    margin-left: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
+.io-item .info-icon {
+    font-size: 0.75rem;
+    margin-left: auto;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+/* Connection line warning style */
 .connection-line.warning-line {
     stroke: #ffc107;
 }

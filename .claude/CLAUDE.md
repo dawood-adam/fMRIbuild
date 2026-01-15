@@ -19,7 +19,7 @@ A web-based GUI for building neuroimaging (fMRI) analysis workflows. Users visua
 ```
 src/
 ├── main.jsx                # App entry point
-├── components/             # React components (10 files)
+├── components/             # React components (9 files)
 │   ├── actionsBar.jsx      # Generate workflow + workspace buttons
 │   ├── EdgeMappingModal.jsx   # Modal for mapping node outputs to inputs
 │   ├── footer.jsx          # Footer component
@@ -35,7 +35,7 @@ src/
 │   ├── useWorkspaces.js    # Multi-workspace state + localStorage persistence
 │   ├── generateWorkflow.js # Orchestrates CWL zip generation
 │   └── buildWorkflow.js    # Converts ReactFlow graph to CWL YAML
-└── styles/                 # CSS files (10 files, paired with components)
+└── styles/                 # CSS files (10 files)
 
 public/cwl/
 ├── toolMap.js              # CWL tool registry (execution layer)
@@ -44,6 +44,12 @@ public/cwl/
 ├── ants/                   # ANTs CWL tool definitions (17 files)
 ├── freesurfer/             # FreeSurfer CWL tool definitions (20 files)
 └── README.md               # Template for exported bundles
+
+utils/                      # Testing utilities
+├── download_*_test_data.sh # Download test datasets (FSL, AFNI, ANTs, FreeSurfer)
+├── verify_*_tools.sh       # Verify CWL tool definitions work correctly
+├── build_afni_test_image.sh # Build custom AFNI Docker image
+└── README.md               # Testing documentation
 ```
 
 ## Essential Commands
@@ -67,6 +73,7 @@ npm run deploy    # Deploy to GitHub Pages
 | CWL workflow generation | src/hooks/buildWorkflow.js |
 | CWL tool definitions | public/cwl/toolMap.js |
 | Tool UI metadata | src/data/toolData.js |
+| Testing utilities | utils/README.md |
 
 ## Data Flow
 
@@ -133,8 +140,8 @@ When working on specific areas, check these files:
 
 | Topic | File |
 |-------|------|
-| State management, hooks, component patterns | [docs/architectural_patterns.md](docs/architectural_patterns.md) |
 | Complete fMRI tools catalog (FSL, AFNI, SPM, FreeSurfer, ANTs) | [fmri_tools_reference.md](../fmri_tools_reference.md) |
+| Testing utilities and verification | [utils/README.md](../utils/README.md) |
 
 ### Tool Reference Summary
 

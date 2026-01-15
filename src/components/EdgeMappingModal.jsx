@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Modal, Button } from 'react-bootstrap';
 import { TOOL_MAP } from '../../public/cwl/toolMap.js';
+import { parseExtensionsFromGlob, checkExtensionCompatibility } from '../utils/extensionValidation.js';
 import '../styles/edgeMappingModal.css';
 
 /**
@@ -13,7 +14,7 @@ const getBaseType = (type) => {
 
 const isArrayType = (type) => type?.includes('[]') || false;
 
-const checkTypeCompatibility = (outputType, inputType) => {
+const checkTypeCompatibility = (outputType, inputType, outputExtensions = null, inputAcceptedExtensions = null) => {
     if (!outputType || !inputType) return { compatible: true };
 
     const outBase = getBaseType(outputType);
@@ -31,6 +32,26 @@ const checkTypeCompatibility = (outputType, inputType) => {
         return { compatible: false, reason: `Type mismatch: ${outputType} → ${inputType}` };
     }
 
+    // Extension compatibility check for File types
+    if (outBase === 'File' && (outputExtensions || inputAcceptedExtensions)) {
+        const extCompat = checkExtensionCompatibility(outputExtensions, inputAcceptedExtensions);
+        if (!extCompat.compatible) {
+            return {
+                compatible: false,
+                reason: extCompat.reason,
+                isExtensionMismatch: true
+            };
+        }
+        if (extCompat.warning) {
+            return {
+                compatible: true,
+                warning: true,
+                reason: extCompat.reason,
+                isExtensionWarning: true
+            };
+        }
+    }
+
     return { compatible: true };
 };
 
@@ -38,7 +59,8 @@ const checkTypeCompatibility = (outputType, inputType) => {
 export { checkTypeCompatibility, getBaseType, isArrayType };
 
 /**
- * Get tool inputs/outputs, with fallback for undefined tools
+ * Get tool inputs/outputs, with fallback for undefined tools.
+ * Includes file extension metadata for validation.
  */
 const getToolIO = (toolLabel) => {
     const tool = TOOL_MAP[toolLabel];
@@ -47,22 +69,24 @@ const getToolIO = (toolLabel) => {
             outputs: Object.entries(tool.outputs).map(([name, def]) => ({
                 name,
                 type: def.type,
-                label: def.label || name
+                label: def.label || name,
+                extensions: parseExtensionsFromGlob(def.glob)
             })),
             inputs: Object.entries(tool.requiredInputs)
                 .filter(([_, def]) => def.passthrough)
                 .map(([name, def]) => ({
                     name,
                     type: def.type,
-                    label: def.label || name
+                    label: def.label || name,
+                    acceptedExtensions: def.acceptedExtensions || null
                 })),
             isGeneric: false
         };
     }
     // Fallback for undefined tools
     return {
-        outputs: [{ name: 'output', type: 'File', label: 'Output' }],
-        inputs: [{ name: 'input', type: 'File', label: 'Input' }],
+        outputs: [{ name: 'output', type: 'File', label: 'Output', extensions: [] }],
+        inputs: [{ name: 'input', type: 'File', label: 'Input', acceptedExtensions: null }],
         isGeneric: true
     };
 };
@@ -202,7 +226,12 @@ const EdgeMappingModal = ({
     const getMappingCompatibility = (outputName, inputName) => {
         const output = sourceIO.outputs.find(o => o.name === outputName);
         const input = targetIO.inputs.find(i => i.name === inputName);
-        return checkTypeCompatibility(output?.type, input?.type);
+        return checkTypeCompatibility(
+            output?.type,
+            input?.type,
+            output?.extensions,
+            input?.acceptedExtensions
+        );
     };
 
     // Check if any current mappings have type issues
@@ -256,13 +285,20 @@ const EdgeMappingModal = ({
                                     className={`io-item output-item ${
                                         selectedOutput === output.name ? 'selected' : ''
                                     } ${isOutputMapped(output.name) ? 'mapped' : ''} ${
-                                        !compatibility.compatible ? 'type-warning' : ''
+                                        !compatibility.compatible ? 'mismatch-warning' : ''
                                     }`}
                                     onClick={() => handleOutputClick(output.name)}
                                 >
-                                    <span className="io-name">{output.label}</span>
-                                    <span className="io-type">{output.type}</span>
-                                    {!compatibility.compatible && <span className="warning-icon" title={compatibility.reason}>⚠️</span>}
+                                    <div className="io-item-main">
+                                        <span className="io-name">{output.label}</span>
+                                        <span className="io-type">{output.type}</span>
+                                        {!compatibility.compatible && <span className="warning-icon" title={compatibility.reason}>⚠️</span>}
+                                    </div>
+                                    {output.extensions?.length > 0 && (
+                                        <span className="io-extensions" title={output.extensions.join(', ')}>
+                                            {output.extensions.join(', ')}
+                                        </span>
+                                    )}
                                 </div>
                             );
                         })}
@@ -326,14 +362,21 @@ const EdgeMappingModal = ({
                                     className={`io-item input-item ${
                                         isInputMapped(input.name) ? 'mapped' : ''
                                     } ${selectedOutput ? 'clickable' : ''} ${
-                                        !compatibility.compatible ? 'type-warning' : ''
-                                    } ${selectedOutput && !selectedCompatibility.compatible ? 'type-warning-preview' : ''}`}
+                                        !compatibility.compatible ? 'mismatch-warning' : ''
+                                    } ${selectedOutput && !selectedCompatibility.compatible ? 'mismatch-warning-preview' : ''}`}
                                     onClick={() => handleInputClick(input.name)}
                                     title={!selectedCompatibility.compatible ? selectedCompatibility.reason : ''}
                                 >
-                                    <span className="io-name">{input.label}</span>
-                                    <span className="io-type">{input.type}</span>
-                                    {!compatibility.compatible && <span className="warning-icon" title={compatibility.reason}>⚠️</span>}
+                                    <div className="io-item-main">
+                                        <span className="io-name">{input.label}</span>
+                                        <span className="io-type">{input.type}</span>
+                                        {!compatibility.compatible && <span className="warning-icon" title={compatibility.reason}>⚠️</span>}
+                                    </div>
+                                    {input.acceptedExtensions?.length > 0 && (
+                                        <span className="io-extensions" title={input.acceptedExtensions.join(', ')}>
+                                            {input.acceptedExtensions.join(', ')}
+                                        </span>
+                                    )}
                                 </div>
                             );
                         })}
