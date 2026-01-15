@@ -1,8 +1,8 @@
 {
-  "name": "fMRIbuild",
+  "name": "niBuild",
   "version": "1.0.0",
   "description": "Front end for the CWL neuro analysis workflow app.",
-  "homepage": "https://kunaalagarwal.github.io/fMRIbuild",
+  "homepage": "https://kunaalagarwal.github.io/niBuild",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

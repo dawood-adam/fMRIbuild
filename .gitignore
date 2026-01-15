@@ -1,12 +1,22 @@
-notes/
+# Dependencies
 node_modules/
+
+# Build output
+dist/
+
+# IDE / Editor
 .vscode/
 .idea/
-.DS_Store
 *.swp
-dist/
-/public/*.log   # Ignore logs
-/public/temp/   # Ignore temporary files
-tests/work/
-tests/work/ants/derived/cortical_testMode_*
+.DS_Store
+
+# Project notes
+notes/
+
+# Public folder artifacts
+/public/*.log
+/public/temp/
+
+# Testing artifacts (downloaded datasets and tool outputs)
 tests/data/
+tests/work/

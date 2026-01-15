@@ -10,11 +10,11 @@ function HeaderBar(){
 
     return (
         <div className="header-bar">
-            <h1>fMRIbuild</h1>
+            <h1>niBuild</h1>
             {/*ℹ️ */}
             <span className="header-span" onClick={handleShowInfo}>[how-to]</span>
-            <a className="header-span header-link" href="https://github.com/KunaalAgarwal/fMRIbuild" target="_blank">[github]</a>
-            <a className="header-span header-link" href="https://github.com/KunaalAgarwal/fMRIbuild/issues" target="_blank">[issues]</a>
+            <a className="header-span header-link" href="https://github.com/KunaalAgarwal/niBuild" target="_blank">[github]</a>
+            <a className="header-span header-link" href="https://github.com/KunaalAgarwal/niBuild/issues" target="_blank">[issues]</a>
             <Modal className="custom-modal" show={showInfo} onHide={handleCloseInfo} centered>
                 <Modal.Body className="modal-label header-modal">
                     <ul style={{ paddingLeft: '20px', marginBottom: '0', lineHeight: '2.0' }}>

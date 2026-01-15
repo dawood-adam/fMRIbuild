@@ -1,10 +1,10 @@
-# fMRIbuild - Neuroimaging Workflow Generator
+# niBuild - Neuroimaging Workflow Generator
 
 ## Project Overview
 
 A web-based GUI for building neuroimaging (fMRI) analysis workflows. Users visually design workflows by dragging/dropping analysis operations (FSL, AFNI, FreeSurfer, ANTs) onto a canvas, configure parameters, connect nodes, and export to Common Workflow Language (CWL) format.
 
-**Live Demo**: https://kunaalagarwal.github.io/fMRIbuild/
+**Live Demo**: https://kunaalagarwal.github.io/niBuild/
 
 ## Tech Stack
 
@@ -122,7 +122,7 @@ All CWL definitions include:
 
 ## Environment Configuration
 
-- `vite.config.js`: Base URL set to `/fMRIbuild/` for GitHub Pages
+- `vite.config.js`: Base URL set to `/niBuild/` for GitHub Pages
 - CWL files fetched using `import.meta.env.BASE_URL` for path resolution
 
 ---

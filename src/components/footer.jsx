@@ -9,6 +9,8 @@ const Footer = () => {
                 <span className="footer-span">
                     [Authors = Agarwal K.
                     <a href="https://www.linkedin.com/in/kunaal-agarwal/" target="_blank" rel="noopener noreferrer" className="footer-links footer-span"> [Info]</a>,
+                    Dawood A.
+                    <a href="https://www.linkedin.com/in/adamadawood/" target="_blank" rel="noopener noreferrer" className="footer-links footer-span"> [Info]</a>,
                     Rasero J.
                     <a href="https://datascience.virginia.edu/people/javier-rasero" target="_blank" rel="noopener noreferrer" className="footer-links footer-span"> [Info]</a>]
                 </span>
