@@ -1,0 +1,147 @@
+/* ============================================
+   TAG DROPDOWN - Docker Version Selector
+   Matches project dark theme patterns
+   ============================================ */
+
+.tag-dropdown-wrapper {
+    display: flex;
+    align-items: center;
+    background-color: #1e1e1e;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 6px 10px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+}
+
+.tag-dropdown-wrapper.focused {
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.15);
+}
+
+.tag-dropdown-wrapper.invalid {
+    border-color: #e74c3c;
+}
+
+.tag-dropdown-wrapper.invalid.focused {
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.15);
+}
+
+/* Prefix text (e.g., "brainlife/fsl:") */
+.tag-dropdown-prefix {
+    font-family: 'Roboto Mono', monospace;
+    color: #888;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    user-select: none;
+}
+
+/* Input field */
+.tag-dropdown-input {
+    font-family: 'Roboto Mono', monospace;
+    background-color: transparent;
+    border: none;
+    color: #4a90e2;
+    padding: 0 4px;
+    flex: 1;
+    font-size: 0.85rem;
+    min-width: 80px;
+    outline: none;
+}
+
+.tag-dropdown-input::placeholder {
+    color: #555;
+}
+
+.tag-dropdown-input.invalid {
+    color: #e74c3c;
+}
+
+/* Chevron indicator */
+.tag-dropdown-chevron {
+    font-size: 0.6rem;
+    color: #666;
+    cursor: pointer;
+    transition: transform 0.15s ease, color 0.15s ease;
+    user-select: none;
+    padding-left: 8px;
+}
+
+.tag-dropdown-chevron:hover {
+    color: #4a90e2;
+}
+
+.tag-dropdown-chevron.open {
+    transform: rotate(180deg);
+}
+
+/* Dropdown list (rendered via portal) */
+.tag-dropdown-list {
+    position: fixed;
+    background-color: #1a1a1a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10001;
+    padding: 4px;
+}
+
+/* Custom scrollbar for dropdown */
+.tag-dropdown-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.tag-dropdown-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tag-dropdown-list::-webkit-scrollbar-thumb {
+    background-color: #444;
+    border-radius: 3px;
+}
+
+.tag-dropdown-list::-webkit-scrollbar-thumb:hover {
+    background-color: #555;
+}
+
+/* Dropdown items */
+.tag-dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.8rem;
+    color: #e0e0e0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.tag-dropdown-item:hover,
+.tag-dropdown-item.highlighted {
+    background-color: #2a2a2a;
+}
+
+.tag-dropdown-item.selected {
+    background-color: #1a3a5c;
+    color: #4a90e2;
+}
+
+.tag-dropdown-item.selected.highlighted {
+    background-color: #1e4570;
+}
+
+/* Badge for special tags */
+.tag-badge {
+    font-size: 0.6rem;
+    color: #888;
+    background-color: rgba(255, 255, 255, 0.08);
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}

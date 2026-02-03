@@ -168,3 +168,23 @@ export const toolsByLibrary = {
 };
 
 export const libraryOrder = ['FSL', 'AFNI', 'SPM', 'FreeSurfer', 'ANTs'];
+
+/**
+ * Known Docker image tags for each neuroimaging library.
+ * Tags are ordered with most recent/recommended first.
+ * Run `node scripts/fetchDockerTags.js` to update from Docker Hub.
+ * Last fetched: 2026-02-03
+ */
+export const DOCKER_TAGS = {
+    // brainlife/fsl - https://hub.docker.com/r/brainlife/fsl/tags
+    FSL: ['latest', '6.0.4-patched2', '6.0.4-patched', '6.0.4', '6.0.4-xenial', '6.0.1', '6.0.0', '5.0.11', '5.0.9'],
+
+    // brainlife/afni - https://hub.docker.com/r/brainlife/afni/tags
+    AFNI: ['latest', '16.3.0'],
+
+    // antsx/ants - https://hub.docker.com/r/antsx/ants/tags
+    ANTs: ['latest', 'v2.6.5', 'v2.6.4', 'v2.6.3', 'v2.6.2', 'v2.6.1', 'v2.6.0', 'v2.5.4', 'v2.5.3', 'v2.5.2'],
+
+    // freesurfer/freesurfer - https://hub.docker.com/r/freesurfer/freesurfer/tags
+    FreeSurfer: ['latest', '8.1.0', '8.0.0', '7.4.1', '7.3.2', '7.3.1', '7.3.0', '7.2.0', '7.1.1', '6.0']
+};

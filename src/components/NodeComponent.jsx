@@ -2,14 +2,34 @@ import React, { useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Handle, Position } from 'reactflow';
 import { Modal, Form } from 'react-bootstrap';
-import { TOOL_MAP } from '../../public/cwl/toolMap.js';
-import { toolsByLibrary } from '../data/toolData.js';
+import { TOOL_MAP, DOCKER_IMAGES } from '../../public/cwl/toolMap.js';
+import { toolsByLibrary, DOCKER_TAGS } from '../data/toolData.js';
+import TagDropdown from './TagDropdown.jsx';
 import '../styles/workflowItem.css';
+
+// Map DOCKER_IMAGES keys to DOCKER_TAGS keys
+const LIBRARY_MAP = {
+    fsl: 'FSL',
+    afni: 'AFNI',
+    ants: 'ANTs',
+    freesurfer: 'FreeSurfer'
+};
+
+const getLibraryFromDockerImage = (dockerImage) => {
+    for (const [key, image] of Object.entries(DOCKER_IMAGES)) {
+        if (image === dockerImage) {
+            return LIBRARY_MAP[key] || null;
+        }
+    }
+    return null;
+};
 
 const NodeComponent = ({ data }) => {
     const [showModal, setShowModal] = useState(false);
     const [textInput, setTextInput] = useState(data.parameters || '');
     const [dockerVersion, setDockerVersion] = useState(data.dockerVersion || 'latest');
+    const [versionValid, setVersionValid] = useState(true);
+    const [versionWarning, setVersionWarning] = useState('');
 
     // Info tooltip state (hover only, like workflowMenuItem)
     const [showInfoTooltip, setShowInfoTooltip] = useState(false);
@@ -21,6 +41,31 @@ const NodeComponent = ({ data }) => {
     const optionalInputs = tool?.optionalInputs || {};
     const hasDefinedTool = !!tool;
     const dockerImage = tool?.dockerImage || null;
+
+    // Get known tags for this tool's docker image
+    const library = dockerImage ? getLibraryFromDockerImage(dockerImage) : null;
+    const knownTags = library ? (DOCKER_TAGS[library] || ['latest']) : ['latest'];
+
+    // Validate docker version against known tags
+    const validateDockerVersion = (version) => {
+        const trimmed = version.trim();
+        if (!trimmed || trimmed === 'latest') {
+            setVersionValid(true);
+            setVersionWarning('');
+            return;
+        }
+
+        if (knownTags.includes(trimmed)) {
+            setVersionValid(true);
+            setVersionWarning('');
+        } else {
+            setVersionValid(false);
+            const displayTags = knownTags.length > 4
+                ? `${knownTags.slice(0, 4).join(', ')}...`
+                : knownTags.join(', ');
+            setVersionWarning(`Unknown tag. Known: ${displayTags}`);
+        }
+    };
 
     // Find tool info from toolsByLibrary for the info tooltip
     const toolInfo = useMemo(() => {
@@ -243,18 +288,20 @@ const NodeComponent = ({ data }) => {
                                 <Form.Label className="modal-label">
                                     Docker Image
                                 </Form.Label>
-                                <div className="docker-version-input-wrapper">
-                                    <span className="docker-image-prefix">{dockerImage}:</span>
-                                    <Form.Control
-                                        type="text"
-                                        value={dockerVersion}
-                                        onChange={(e) => setDockerVersion(e.target.value)}
-                                        className="docker-version-input"
-                                        placeholder="latest"
-                                    />
-                                </div>
+                                <TagDropdown
+                                    value={dockerVersion}
+                                    onChange={setDockerVersion}
+                                    onBlur={() => validateDockerVersion(dockerVersion)}
+                                    tags={knownTags}
+                                    placeholder="latest"
+                                    isValid={versionValid}
+                                    prefix={`${dockerImage}:`}
+                                />
+                                {versionWarning && (
+                                    <div className="docker-warning-text">{versionWarning}</div>
+                                )}
                                 <div className="docker-help-text">
-                                    Specify a tag (e.g., "latest", "6.0.5", "2023.01")
+                                    Select a tag or enter a custom version
                                 </div>
                             </Form.Group>
                         )}
