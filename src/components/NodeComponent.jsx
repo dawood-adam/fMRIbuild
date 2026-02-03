@@ -25,6 +25,9 @@ const getLibraryFromDockerImage = (dockerImage) => {
 };
 
 const NodeComponent = ({ data }) => {
+    // Check if this is a dummy node early
+    const isDummy = data.isDummy === true;
+
     const [showModal, setShowModal] = useState(false);
     const [textInput, setTextInput] = useState(data.parameters || '');
     const [dockerVersion, setDockerVersion] = useState(data.dockerVersion || 'latest');
@@ -205,6 +208,19 @@ const NodeComponent = ({ data }) => {
     const handleInfoMouseLeave = () => {
         setShowInfoTooltip(false);
     };
+
+    // Render simplified UI for dummy nodes (no decoration)
+    if (isDummy) {
+        return (
+            <div className="node-wrapper">
+                <div className="node-content">
+                    <Handle type="target" position={Position.Top} />
+                    <span className="node-label">{data.label}</span>
+                    <Handle type="source" position={Position.Bottom} />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>

@@ -8,9 +8,19 @@ import { TOOL_MAP } from '../../public/cwl/toolMap.js';
  * - Exposes all required inputs as workflow inputs
  * - Exposes all optional inputs as nullable workflow inputs
  * - Exposes all outputs from terminal nodes
+ * - Excludes dummy nodes (visual-only) from CWL generation
  */
 export function buildCWLWorkflow(graph) {
-    const { nodes, edges } = graph;
+    // Filter out dummy nodes before processing
+    const dummyNodeIds = new Set(
+        graph.nodes.filter(n => n.data?.isDummy).map(n => n.id)
+    );
+
+    // Get non-dummy nodes and filter edges that connect to/from dummy nodes
+    const nodes = graph.nodes.filter(n => !n.data?.isDummy);
+    const edges = graph.edges.filter(e =>
+        !dummyNodeIds.has(e.source) && !dummyNodeIds.has(e.target)
+    );
 
     /* ---------- helper look-ups ---------- */
     const nodeById   = id => nodes.find(n => n.id === id);

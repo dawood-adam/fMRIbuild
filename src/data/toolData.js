@@ -170,6 +170,29 @@ export const toolsByLibrary = {
 export const libraryOrder = ['FSL', 'AFNI', 'SPM', 'FreeSurfer', 'ANTs'];
 
 /**
+ * Dummy nodes for visual workflow representation.
+ * These are excluded from CWL generation and serve only as visual indicators.
+ */
+export const dummyNodes = {
+  'I/O': [
+    {
+      name: 'Input',
+      fullName: 'Workflow Input',
+      function: 'Represents external input data entering the workflow',
+      typicalUse: 'Connect to the first processing step to show where data comes from',
+      isDummy: true
+    },
+    {
+      name: 'Output',
+      fullName: 'Workflow Output',
+      function: 'Represents the final output of the workflow',
+      typicalUse: 'Connect from the last processing step to show where results go',
+      isDummy: true
+    }
+  ]
+};
+
+/**
  * Known Docker image tags for each neuroimaging library.
  * Tags are ordered with most recent/recommended first.
  * Run `node scripts/fetchDockerTags.js` to update from Docker Hub.

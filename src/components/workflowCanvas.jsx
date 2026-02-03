@@ -240,6 +240,7 @@ function WorkflowCanvas({ workflowItems, updateCurrentWorkspaceItems, onSetWorkf
   const handleDrop = (event) => {
     event.preventDefault();
     const name = event.dataTransfer.getData('node/name') || 'Unnamed Node';
+    const isDummy = event.dataTransfer.getData('node/isDummy') === 'true';
     if (!reactFlowInstance) return;
 
     const flowPosition = reactFlowInstance.screenToFlowPosition({
@@ -254,7 +255,8 @@ function WorkflowCanvas({ workflowItems, updateCurrentWorkspaceItems, onSetWorkf
         label: name,
         parameters: '',
         dockerVersion: 'latest',
-        onSaveParameters: (newData) => handleNodeUpdate(newNode.id, newData),
+        isDummy: isDummy,
+        onSaveParameters: isDummy ? null : (newData) => handleNodeUpdate(newNode.id, newData),
       },
       position: flowPosition,
     };

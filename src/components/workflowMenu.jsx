@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import WorkflowMenuItem from './workflowMenuItem';
-import { toolsByLibrary, libraryOrder } from '../data/toolData';
+import { toolsByLibrary, libraryOrder, dummyNodes } from '../data/toolData';
 import '../styles/workflowMenu.css';
 
 function WorkflowMenu() {
   const [expandedSections, setExpandedSections] = useState({
+    DummyNodes: false,
     FSL: false,
     AFNI: false,
     SPM: false,
@@ -19,8 +20,9 @@ function WorkflowMenu() {
     }));
   };
 
-  const handleDragStart = (event, name) => {
+  const handleDragStart = (event, name, isDummy = false) => {
     event.dataTransfer.setData('node/name', name);
+    event.dataTransfer.setData('node/isDummy', isDummy.toString());
   };
 
   // Count total tools in a library
@@ -33,6 +35,38 @@ function WorkflowMenu() {
   return (
     <div className="workflow-menu-container">
       <div className="workflow-menu">
+        {/* I/O (Dummy Nodes) Section */}
+        <div className="library-section">
+          <div
+            className={`library-header ${expandedSections['DummyNodes'] ? 'expanded' : ''}`}
+            onClick={() => toggleSection('DummyNodes')}
+          >
+            <span className="chevron">{expandedSections['DummyNodes'] ? '▼' : '▶'}</span>
+            <span className="library-name">I/O</span>
+            <span className="tool-count">2</span>
+          </div>
+
+          {expandedSections['DummyNodes'] && (
+            <div className="library-tools">
+              <div className="subsection-tools">
+                {dummyNodes['I/O'].map((tool, index) => (
+                  <WorkflowMenuItem
+                    key={`dummy-${index}`}
+                    name={tool.name}
+                    toolInfo={{
+                      fullName: tool.fullName,
+                      function: tool.function,
+                      typicalUse: tool.typicalUse
+                    }}
+                    onDragStart={(event, name) => handleDragStart(event, name, true)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Library Sections */}
         {libraryOrder.map((library) => {
           const libraryData = toolsByLibrary[library];
           const isExpanded = expandedSections[library];
