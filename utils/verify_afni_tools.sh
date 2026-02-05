@@ -144,7 +144,7 @@ ensure_image() {
       fi
       ;;
     build)
-      if ! AFNI_TEST_IMAGE="$image" "${ROOT_DIR}/scripts/build_afni_test_image.sh"; then
+      if ! AFNI_TEST_IMAGE="$image" "${ROOT_DIR}/utils/build_afni_test_image.sh"; then
         die "Failed to build ${image}"
       fi
       ;;
