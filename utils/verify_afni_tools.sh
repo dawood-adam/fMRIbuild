@@ -34,14 +34,18 @@ CWLTOOL_BIN="${CWLTOOL_BIN:-cwltool}"
 RERUN_PASSED=0
 PASS_CACHE_FILE=""
 CWLTOOL_ARGS=()
+RUN_TOOLS=1
 
 for arg in "$@"; do
   case "$arg" in
     --rerun-passed|--rerun-all)
       RERUN_PASSED=1
       ;;
+    --jobs-only)
+      RUN_TOOLS=0
+      ;;
     --help|-h)
-      echo "Usage: $(basename "$0") [--rerun-passed|--rerun-all]"
+      echo "Usage: $(basename "$0") [--rerun-passed|--rerun-all] [--jobs-only]"
       exit 0
       ;;
     *)
@@ -81,6 +85,9 @@ ensure_repo_data_gitignore() {
 skip_tool() {
   local name="$1"
   local reason="${2:-}"
+  if [[ "$RUN_TOOLS" -ne 1 ]]; then
+    return 0
+  fi
   echo -e "${name}\tSKIP" >>"$SUMMARY_FILE"
   if [[ -n "$reason" ]]; then
     echo "SKIP: ${reason}" >>"${LOG_DIR}/${name}.log"
@@ -268,6 +275,12 @@ run_tool() {
   fi
   echo -e "${name}\t${status}" >>"$SUMMARY_FILE"
   return 0
+}
+
+maybe_run_tool() {
+  if [[ "$RUN_TOOLS" -eq 1 ]]; then
+    maybe_run_tool "$@"
+  fi
 }
 
 if ! command -v "$CWLTOOL_BIN" >/dev/null 2>&1; then
@@ -534,7 +547,7 @@ mask:
   class: File
   path: "${BOLD_MASK}"
 EOF
-run_tool "3dNetCorr" "${JOB_DIR}/3dNetCorr.yml"
+maybe_run_tool "3dNetCorr" "${JOB_DIR}/3dNetCorr.yml"
 
 cat >"${JOB_DIR}/3dSkullStrip.yml" <<EOF
 input:
@@ -543,7 +556,7 @@ input:
 prefix: "skullstrip"
 niter: 5
 EOF
-run_tool "3dSkullStrip" "${JOB_DIR}/3dSkullStrip.yml"
+maybe_run_tool "3dSkullStrip" "${JOB_DIR}/3dSkullStrip.yml"
 
 cat >"${JOB_DIR}/3dANOVA.yml" <<EOF
 levels: 2
@@ -567,7 +580,7 @@ dset:
 ftr: "anova_ftr"
 bucket: "anova_bucket"
 EOF
-run_tool "3dANOVA" "${JOB_DIR}/3dANOVA.yml"
+maybe_run_tool "3dANOVA" "${JOB_DIR}/3dANOVA.yml"
 
 cat >"${JOB_DIR}/3dDespike.yml" <<EOF
 input:
@@ -575,7 +588,7 @@ input:
   path: "${BOLD_CLIP_RES}"
 prefix: "despike"
 EOF
-run_tool "3dDespike" "${JOB_DIR}/3dDespike.yml"
+maybe_run_tool "3dDespike" "${JOB_DIR}/3dDespike.yml"
 
 cat >"${JOB_DIR}/SSwarper.yml" <<EOF
 input:
@@ -595,7 +608,7 @@ init_skullstr_off: true
 extra_qc_off: true
 skipwarp: true
 EOF
-run_tool "SSwarper" "${JOB_DIR}/SSwarper.yml"
+maybe_run_tool "SSwarper" "${JOB_DIR}/SSwarper.yml"
 
 cat >"${JOB_DIR}/3dTstat.yml" <<EOF
 input:
@@ -604,7 +617,7 @@ input:
 prefix: "tstat"
 mean: true
 EOF
-run_tool "3dTstat" "${JOB_DIR}/3dTstat.yml"
+maybe_run_tool "3dTstat" "${JOB_DIR}/3dTstat.yml"
 
 cat >"${JOB_DIR}/3dLMEr.yml" <<EOF
 prefix: "lmerr_out"
@@ -635,7 +648,7 @@ mask:
   path: "${LME_MASK}"
 jobs: 1
 EOF
-run_tool "3dLMEr" "${JOB_DIR}/3dLMEr.yml"
+maybe_run_tool "3dLMEr" "${JOB_DIR}/3dLMEr.yml"
 
 cat >"${JOB_DIR}/3dQwarp.yml" <<EOF
 source:
@@ -650,9 +663,13 @@ minpatch: 5
 maxlev: 0
 quiet: true
 EOF
-run_tool "3dQwarp" "${JOB_DIR}/3dQwarp.yml"
+maybe_run_tool "3dQwarp" "${JOB_DIR}/3dQwarp.yml"
 
-QWARP_WARP="$(first_match "${OUT_DIR}/3dQwarp/qwarp_out_WARP.nii*" "${OUT_DIR}/3dQwarp/qwarp_out_WARP+*.HEAD" "${OUT_DIR}/3dQwarp/qwarp_out_WARP+*.BRIK*")"
+if [[ "$RUN_TOOLS" -eq 0 ]]; then
+  QWARP_WARP="${OUT_DIR}/3dQwarp/qwarp_out_WARP.nii.gz"
+else
+  QWARP_WARP="$(first_match "${OUT_DIR}/3dQwarp/qwarp_out_WARP.nii*" "${OUT_DIR}/3dQwarp/qwarp_out_WARP+*.HEAD" "${OUT_DIR}/3dQwarp/qwarp_out_WARP+*.BRIK*")"
+fi
 
 if [[ -n "$QWARP_WARP" ]]; then
   cat >"${JOB_DIR}/3dNwarpCat.yml" <<EOF
@@ -661,7 +678,7 @@ warp1:
   class: File
   path: "${QWARP_WARP}"
 EOF
-  run_tool "3dNwarpCat" "${JOB_DIR}/3dNwarpCat.yml"
+  maybe_run_tool "3dNwarpCat" "${JOB_DIR}/3dNwarpCat.yml"
 
   cat >"${JOB_DIR}/3dNwarpApply.yml" <<EOF
 nwarp:
@@ -673,7 +690,7 @@ source:
 prefix: "nwarp_apply"
 interp: linear
 EOF
-  run_tool "3dNwarpApply" "${JOB_DIR}/3dNwarpApply.yml"
+  maybe_run_tool "3dNwarpApply" "${JOB_DIR}/3dNwarpApply.yml"
 else
   skip_tool "3dNwarpCat" "Missing warp from 3dQwarp"
   skip_tool "3dNwarpApply" "Missing warp from 3dQwarp"
@@ -689,7 +706,7 @@ mask:
 out: "fwhm_out.1D"
 acf: "fwhm_acf.1D"
 EOF
-run_tool "3dFWHMx" "${JOB_DIR}/3dFWHMx.yml"
+maybe_run_tool "3dFWHMx" "${JOB_DIR}/3dFWHMx.yml"
 
 cat >"${JOB_DIR}/3dvolreg.yml" <<EOF
 input:
@@ -699,7 +716,7 @@ prefix: "volreg"
 base: 0
 oned_file: "volreg.1D"
 EOF
-run_tool "3dvolreg" "${JOB_DIR}/3dvolreg.yml"
+maybe_run_tool "3dvolreg" "${JOB_DIR}/3dvolreg.yml"
 
 cat >"${JOB_DIR}/3dTshift.yml" <<EOF
 input:
@@ -708,7 +725,7 @@ input:
 prefix: "tshift"
 tpattern: "alt+z"
 EOF
-run_tool "3dTshift" "${JOB_DIR}/3dTshift.yml"
+maybe_run_tool "3dTshift" "${JOB_DIR}/3dTshift.yml"
 
 cat >"${JOB_DIR}/3dcopy.yml" <<EOF
 old_dataset:
@@ -716,7 +733,7 @@ old_dataset:
   path: "${BOLD_MEAN}"
 new_prefix: "copy_out"
 EOF
-run_tool "3dcopy" "${JOB_DIR}/3dcopy.yml"
+maybe_run_tool "3dcopy" "${JOB_DIR}/3dcopy.yml"
 
 cat >"${JOB_DIR}/3dDeconvolve.yml" <<EOF
 input:
@@ -735,9 +752,13 @@ stim_label:
     label: "stim"
 x1D: "deconvolve.xmat.1D"
 EOF
-run_tool "3dDeconvolve" "${JOB_DIR}/3dDeconvolve.yml"
+maybe_run_tool "3dDeconvolve" "${JOB_DIR}/3dDeconvolve.yml"
 
-XMAT_FILE="$(first_match "${OUT_DIR}/3dDeconvolve"/*xmat*.1D "${OUT_DIR}/3dDeconvolve"/*.xmat.1D)"
+if [[ "$RUN_TOOLS" -eq 0 ]]; then
+  XMAT_FILE="${OUT_DIR}/3dDeconvolve/deconvolve.xmat.1D"
+else
+  XMAT_FILE="$(first_match "${OUT_DIR}/3dDeconvolve"/*xmat*.1D "${OUT_DIR}/3dDeconvolve"/*.xmat.1D)"
+fi
 if [[ -n "$XMAT_FILE" ]]; then
   cat >"${JOB_DIR}/3dREMLfit.yml" <<EOF
 input:
@@ -748,7 +769,7 @@ matrix:
   path: "${XMAT_FILE}"
 Rbuck: "remlfit"
 EOF
-  run_tool "3dREMLfit" "${JOB_DIR}/3dREMLfit.yml"
+  maybe_run_tool "3dREMLfit" "${JOB_DIR}/3dREMLfit.yml"
 else
   skip_tool "3dREMLfit" "Missing X-matrix from 3dDeconvolve"
 fi
@@ -763,7 +784,7 @@ master:
   path: "${BOLD_MEAN}"
 ijk: true
 EOF
-run_tool "3dUndump" "${JOB_DIR}/3dUndump.yml"
+maybe_run_tool "3dUndump" "${JOB_DIR}/3dUndump.yml"
 
 cat >"${JOB_DIR}/3dClustSim.yml" <<EOF
 prefix: "clustsim"
@@ -775,7 +796,7 @@ pthr: "0.05"
 athr: "0.1"
 quiet: true
 EOF
-run_tool "3dClustSim" "${JOB_DIR}/3dClustSim.yml"
+maybe_run_tool "3dClustSim" "${JOB_DIR}/3dClustSim.yml"
 
 cat >"${JOB_DIR}/3dTcat.yml" <<EOF
 input:
@@ -783,7 +804,7 @@ input:
   path: "${BOLD_CLIP_RES}"
 prefix: "tcat"
 EOF
-run_tool "3dTcat" "${JOB_DIR}/3dTcat.yml"
+maybe_run_tool "3dTcat" "${JOB_DIR}/3dTcat.yml"
 
 cat >"${JOB_DIR}/3dBandpass.yml" <<EOF
 input:
@@ -796,7 +817,7 @@ mask:
   class: File
   path: "${BOLD_MASK}"
 EOF
-run_tool "3dBandpass" "${JOB_DIR}/3dBandpass.yml"
+maybe_run_tool "3dBandpass" "${JOB_DIR}/3dBandpass.yml"
 
 cat >"${JOB_DIR}/3dTcorr1D.yml" <<EOF
 xset:
@@ -810,7 +831,7 @@ mask:
   class: File
   path: "${BOLD_MASK}"
 EOF
-run_tool "3dTcorr1D" "${JOB_DIR}/3dTcorr1D.yml"
+maybe_run_tool "3dTcorr1D" "${JOB_DIR}/3dTcorr1D.yml"
 
 cat >"${JOB_DIR}/3dZeropad.yml" <<EOF
 input:
@@ -820,7 +841,7 @@ prefix: "zeropad"
 I: 1
 S: 1
 EOF
-run_tool "3dZeropad" "${JOB_DIR}/3dZeropad.yml"
+maybe_run_tool "3dZeropad" "${JOB_DIR}/3dZeropad.yml"
 
 cat >"${JOB_DIR}/3dmaskave.yml" <<EOF
 input:
@@ -830,7 +851,7 @@ mask:
   class: File
   path: "${BOLD_MASK}"
 EOF
-run_tool "3dmaskave" "${JOB_DIR}/3dmaskave.yml"
+maybe_run_tool "3dmaskave" "${JOB_DIR}/3dmaskave.yml"
 
 cat >"${JOB_DIR}/3dAutomask.yml" <<EOF
 input:
@@ -838,7 +859,7 @@ input:
   path: "${BOLD_MEAN}"
 prefix: "automask"
 EOF
-run_tool "3dAutomask" "${JOB_DIR}/3dAutomask.yml"
+maybe_run_tool "3dAutomask" "${JOB_DIR}/3dAutomask.yml"
 
 cat >"${JOB_DIR}/3dMVM.yml" <<EOF
 prefix: "mvm_out"
@@ -874,7 +895,7 @@ mask:
   path: "${LME_MASK}"
 jobs: 1
 EOF
-run_tool "3dMVM" "${JOB_DIR}/3dMVM.yml"
+maybe_run_tool "3dMVM" "${JOB_DIR}/3dMVM.yml"
 
 cat >"${JOB_DIR}/3dfractionize.yml" <<EOF
 template:
@@ -886,7 +907,7 @@ input:
 prefix: "fractionize"
 clip: 0.2
 EOF
-run_tool "3dfractionize" "${JOB_DIR}/3dfractionize.yml"
+maybe_run_tool "3dfractionize" "${JOB_DIR}/3dfractionize.yml"
 
 cat >"${JOB_DIR}/3dROIstats.yml" <<EOF
 input:
@@ -896,7 +917,7 @@ mask:
   class: File
   path: "${ROI_MASK}"
 EOF
-run_tool "3dROIstats" "${JOB_DIR}/3dROIstats.yml"
+maybe_run_tool "3dROIstats" "${JOB_DIR}/3dROIstats.yml"
 
 cat >"${JOB_DIR}/3dmerge.yml" <<EOF
 input:
@@ -905,7 +926,7 @@ input:
 prefix: "merge"
 blur_fwhm: 4
 EOF
-run_tool "3dmerge" "${JOB_DIR}/3dmerge.yml"
+maybe_run_tool "3dmerge" "${JOB_DIR}/3dmerge.yml"
 
 cat >"${JOB_DIR}/3dinfo.yml" <<EOF
 input:
@@ -913,7 +934,7 @@ input:
   path: "${BOLD_MEAN}"
 short: true
 EOF
-run_tool "3dinfo" "${JOB_DIR}/3dinfo.yml"
+maybe_run_tool "3dinfo" "${JOB_DIR}/3dinfo.yml"
 
 cat >"${JOB_DIR}/whereami.yml" <<EOF
 coord:
@@ -921,7 +942,7 @@ coord:
   - 0
   - 0
 EOF
-run_tool "whereami" "${JOB_DIR}/whereami.yml"
+maybe_run_tool "whereami" "${JOB_DIR}/whereami.yml"
 
 cat >"${JOB_DIR}/3dUnifize.yml" <<EOF
 input:
@@ -929,7 +950,7 @@ input:
   path: "${T1_RES}"
 prefix: "unifize"
 EOF
-run_tool "3dUnifize" "${JOB_DIR}/3dUnifize.yml"
+maybe_run_tool "3dUnifize" "${JOB_DIR}/3dUnifize.yml"
 
 cat >"${JOB_DIR}/3dMEMA.yml" <<EOF
 prefix: "mema_out"
@@ -955,7 +976,7 @@ mask:
   path: "${BOLD_MASK}"
 jobs: 1
 EOF
-run_tool "3dMEMA" "${JOB_DIR}/3dMEMA.yml"
+maybe_run_tool "3dMEMA" "${JOB_DIR}/3dMEMA.yml"
 
 cat >"${JOB_DIR}/3dRSFC.yml" <<EOF
 input:
@@ -968,7 +989,7 @@ mask:
   class: File
   path: "${BOLD_MASK}"
 EOF
-run_tool "3dRSFC" "${JOB_DIR}/3dRSFC.yml"
+maybe_run_tool "3dRSFC" "${JOB_DIR}/3dRSFC.yml"
 
 cat >"${JOB_DIR}/3dresample.yml" <<EOF
 input:
@@ -980,7 +1001,7 @@ dxyz:
   - 5
   - 5
 EOF
-run_tool "3dresample" "${JOB_DIR}/3dresample.yml"
+maybe_run_tool "3dresample" "${JOB_DIR}/3dresample.yml"
 
 cat >"${JOB_DIR}/align_epi_anat.yml" <<EOF
 epi:
@@ -997,7 +1018,7 @@ anat_has_skull: "no"
 epi_strip: "None"
 deoblique: "off"
 EOF
-run_tool "align_epi_anat" "${JOB_DIR}/align_epi_anat.yml"
+maybe_run_tool "align_epi_anat" "${JOB_DIR}/align_epi_anat.yml"
 
 cat >"${JOB_DIR}/3dTcorrMap.yml" <<EOF
 input:
@@ -1008,7 +1029,7 @@ mask:
   class: File
   path: "${BOLD_MASK}"
 EOF
-run_tool "3dTcorrMap" "${JOB_DIR}/3dTcorrMap.yml"
+maybe_run_tool "3dTcorrMap" "${JOB_DIR}/3dTcorrMap.yml"
 
 cat >"${JOB_DIR}/3dttest++.yml" <<EOF
 prefix: "ttest_out"
@@ -1021,7 +1042,7 @@ mask:
   class: File
   path: "${BOLD_MASK}"
 EOF
-run_tool "3dttest++" "${JOB_DIR}/3dttest++.yml"
+maybe_run_tool "3dttest++" "${JOB_DIR}/3dttest++.yml"
 
 cat >"${JOB_DIR}/3dcalc.yml" <<EOF
 a:
@@ -1030,7 +1051,7 @@ a:
 expr: "a*2"
 prefix: "calc"
 EOF
-run_tool "3dcalc" "${JOB_DIR}/3dcalc.yml"
+maybe_run_tool "3dcalc" "${JOB_DIR}/3dcalc.yml"
 
 cat >"${JOB_DIR}/3dLME.yml" <<EOF
 prefix: "lme_out"
@@ -1062,7 +1083,7 @@ mask:
   path: "${LME_MASK}"
 jobs: 1
 EOF
-run_tool "3dLME" "${JOB_DIR}/3dLME.yml"
+maybe_run_tool "3dLME" "${JOB_DIR}/3dLME.yml"
 
 cat >"${JOB_DIR}/3dANOVA3.yml" <<EOF
 type: 1
@@ -1171,7 +1192,7 @@ fb: "anova3_fb"
 fc: "anova3_fc"
 bucket: "anova3_bucket"
 EOF
-run_tool "3dANOVA3" "${JOB_DIR}/3dANOVA3.yml"
+maybe_run_tool "3dANOVA3" "${JOB_DIR}/3dANOVA3.yml"
 
 cat >"${JOB_DIR}/3dAllineate.yml" <<EOF
 source:
@@ -1185,7 +1206,7 @@ warp: shift_rotate
 onepass: true
 oned_matrix_save: "allineate.aff12.1D"
 EOF
-run_tool "3dAllineate" "${JOB_DIR}/3dAllineate.yml"
+maybe_run_tool "3dAllineate" "${JOB_DIR}/3dAllineate.yml"
 
 cat >"${JOB_DIR}/auto_tlrc.yml" <<EOF
 input:
@@ -1197,7 +1218,7 @@ base:
 no_ss: true
 maxite: 1
 EOF
-run_tool "auto_tlrc" "${JOB_DIR}/auto_tlrc.yml"
+maybe_run_tool "auto_tlrc" "${JOB_DIR}/auto_tlrc.yml"
 
 cat >"${JOB_DIR}/3dBlurToFWHM.yml" <<EOF
 input:
@@ -1208,7 +1229,7 @@ FWHM: 4
 maxite: 1
 quiet: true
 EOF
-run_tool "3dBlurToFWHM" "${JOB_DIR}/3dBlurToFWHM.yml"
+maybe_run_tool "3dBlurToFWHM" "${JOB_DIR}/3dBlurToFWHM.yml"
 
 cat >"${JOB_DIR}/3dANOVA2.yml" <<EOF
 type: 1
@@ -1259,7 +1280,12 @@ fa: "anova2_fa"
 fb: "anova2_fb"
 bucket: "anova2_bucket"
 EOF
-run_tool "3dANOVA2" "${JOB_DIR}/3dANOVA2.yml"
+maybe_run_tool "3dANOVA2" "${JOB_DIR}/3dANOVA2.yml"
 
-echo "AFNI verification complete."
-echo "Summary: ${SUMMARY_FILE}"
+if [[ "$RUN_TOOLS" -eq 1 ]]; then
+  echo "AFNI verification complete."
+  echo "Summary: ${SUMMARY_FILE}"
+else
+  echo "Job generation complete."
+  echo "Job files: ${JOB_DIR}"
+fi

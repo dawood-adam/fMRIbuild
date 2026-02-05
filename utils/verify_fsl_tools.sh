@@ -29,6 +29,7 @@ FSL_IMAGE="${FSL_DOCKER_IMAGE:-brainlife/fsl:latest}"
 DOCKER_PLATFORM="${FSL_DOCKER_PLATFORM:-}"
 RERUN_PASSED=0
 PASS_CACHE_FILE=""
+RUN_TOOLS=1
 
 die() {
   echo "Error: $1" >&2
@@ -40,8 +41,11 @@ for arg in "$@"; do
     --rerun-passed|--rerun-all)
       RERUN_PASSED=1
       ;;
+    --jobs-only)
+      RUN_TOOLS=0
+      ;;
     --help|-h)
-      echo "Usage: $(basename "$0") [--rerun-passed]"
+      echo "Usage: $(basename "$0") [--rerun-passed] [--jobs-only]"
       exit 0
       ;;
     *)
@@ -69,6 +73,9 @@ ensure_repo_data_gitignore() {
 skip_tool() {
   local name="$1"
   local reason="${2:-}"
+  if [[ "$RUN_TOOLS" -ne 1 ]]; then
+    return 0
+  fi
   echo -e "${name}\tSKIP" >>"$SUMMARY_FILE"
   if [[ -n "$reason" ]]; then
     echo "SKIP: ${reason}" >>"${LOG_DIR}/${name}.log"
@@ -263,6 +270,12 @@ run_tool() {
   return 0
 }
 
+maybe_run_tool() {
+  if [[ "$RUN_TOOLS" -eq 1 ]]; then
+    maybe_run_tool "$@"
+  fi
+}
+
 require_cmd cwltool
 require_cmd docker
 require_cmd python3
@@ -393,9 +406,14 @@ input:
 output: "bet_out"
 mask: true
 EOF
-  run_tool "bet" "${JOB_DIR}/bet.yml"
-  BET_OUT="$(first_match "${OUT_DIR}/bet/bet_out.nii.gz" "${OUT_DIR}/bet/bet_out.nii")"
-  BET_MASK="$(first_match "${OUT_DIR}/bet/bet_out_mask.nii.gz" "${OUT_DIR}/bet/bet_out_mask.nii")"
+  maybe_run_tool "bet" "${JOB_DIR}/bet.yml"
+  if [[ "$RUN_TOOLS" -eq 0 ]]; then
+    BET_OUT="${OUT_DIR}/bet/bet_out.nii.gz"
+    BET_MASK="${OUT_DIR}/bet/bet_out_mask.nii.gz"
+  else
+    BET_OUT="$(first_match "${OUT_DIR}/bet/bet_out.nii.gz" "${OUT_DIR}/bet/bet_out.nii")"
+    BET_MASK="$(first_match "${OUT_DIR}/bet/bet_out_mask.nii.gz" "${OUT_DIR}/bet/bet_out_mask.nii")"
+  fi
 else
   skip_tool "bet" "missing T1w"
 fi
@@ -408,11 +426,15 @@ input:
   class: File
   path: "${T1W}"
 mul_value: 0
-add_value: 1
+  add_value: 1
 output: "fslmaths_const"
 EOF
-  run_tool "fslmaths" "${JOB_DIR}/fslmaths.yml"
-  FSLMATHS_OUT="$(first_match "${OUT_DIR}/fslmaths/fslmaths_const.nii.gz" "${OUT_DIR}/fslmaths/fslmaths_const.nii")"
+  maybe_run_tool "fslmaths" "${JOB_DIR}/fslmaths.yml"
+  if [[ "$RUN_TOOLS" -eq 0 ]]; then
+    FSLMATHS_OUT="${OUT_DIR}/fslmaths/fslmaths_const.nii.gz"
+  else
+    FSLMATHS_OUT="$(first_match "${OUT_DIR}/fslmaths/fslmaths_const.nii.gz" "${OUT_DIR}/fslmaths/fslmaths_const.nii")"
+  fi
 else
   skip_tool "fslmaths" "missing T1w"
 fi
@@ -425,7 +447,7 @@ input:
   path: "${T1W}"
 mean: true
 EOF
-  run_tool "fslstats" "${JOB_DIR}/fslstats.yml"
+  maybe_run_tool "fslstats" "${JOB_DIR}/fslstats.yml"
 else
   skip_tool "fslstats" "missing T1w"
 fi
@@ -438,7 +460,7 @@ input:
   path: "${T1W}"
 output: "reorient_out"
 EOF
-  run_tool "fslreorient2std" "${JOB_DIR}/fslreorient2std.yml"
+  maybe_run_tool "fslreorient2std" "${JOB_DIR}/fslreorient2std.yml"
 else
   skip_tool "fslreorient2std" "missing T1w"
 fi
@@ -459,8 +481,12 @@ reference:
 output: "flirt_out"
 output_matrix: "flirt_affine.mat"
 EOF
-  run_tool "flirt" "${JOB_DIR}/flirt.yml"
-  FLIRT_MAT="$(first_match "${OUT_DIR}/flirt/flirt_affine.mat")"
+  maybe_run_tool "flirt" "${JOB_DIR}/flirt.yml"
+  if [[ "$RUN_TOOLS" -eq 0 ]]; then
+    FLIRT_MAT="${OUT_DIR}/flirt/flirt_affine.mat"
+  else
+    FLIRT_MAT="$(first_match "${OUT_DIR}/flirt/flirt_affine.mat")"
+  fi
 else
   skip_tool "flirt" "missing T1w"
 fi
@@ -503,8 +529,12 @@ config:
   path: "${FNIRT_CONFIG_PATCHED}"
 EOF
   fi
-  run_tool "fnirt" "${JOB_DIR}/fnirt.yml"
-  FNIRT_FIELD="$(first_match "${OUT_DIR}/fnirt/fnirt_field.nii.gz" "${OUT_DIR}/fnirt/fnirt_field.nii")"
+  maybe_run_tool "fnirt" "${JOB_DIR}/fnirt.yml"
+  if [[ "$RUN_TOOLS" -eq 0 ]]; then
+    FNIRT_FIELD="${OUT_DIR}/fnirt/fnirt_field.nii.gz"
+  else
+    FNIRT_FIELD="$(first_match "${OUT_DIR}/fnirt/fnirt_field.nii.gz" "${OUT_DIR}/fnirt/fnirt_field.nii")"
+  fi
 else
   skip_tool "fnirt" "missing T1w"
 fi
@@ -527,8 +557,12 @@ premat:
   class: File
   path: "${FLIRT_MAT}"
 EOF
-  run_tool "convertwarp" "${JOB_DIR}/convertwarp.yml"
-  WARP_FIELD="$(first_match "${OUT_DIR}/convertwarp/convertwarp_out.nii.gz" "${OUT_DIR}/convertwarp/convertwarp_out.nii")"
+  maybe_run_tool "convertwarp" "${JOB_DIR}/convertwarp.yml"
+  if [[ "$RUN_TOOLS" -eq 0 ]]; then
+    WARP_FIELD="${OUT_DIR}/convertwarp/convertwarp_out.nii.gz"
+  else
+    WARP_FIELD="$(first_match "${OUT_DIR}/convertwarp/convertwarp_out.nii.gz" "${OUT_DIR}/convertwarp/convertwarp_out.nii")"
+  fi
 else
   skip_tool "convertwarp" "missing fnirt field or affine"
 fi
@@ -550,7 +584,7 @@ warp:
   class: File
   path: "${WARP_FIELD}"
 EOF
-  run_tool "applywarp" "${JOB_DIR}/applywarp.yml"
+  maybe_run_tool "applywarp" "${JOB_DIR}/applywarp.yml"
 else
   skip_tool "applywarp" "missing warp field or T1w"
 fi
@@ -569,7 +603,7 @@ reference:
   path: "${STANDARD_REF}"
 output: "invwarp_out"
 EOF
-  run_tool "invwarp" "${JOB_DIR}/invwarp.yml"
+  maybe_run_tool "invwarp" "${JOB_DIR}/invwarp.yml"
 else
   skip_tool "invwarp" "missing warp field"
 fi
@@ -582,7 +616,7 @@ input:
   path: "${BET_OUT}"
 output: "fast_out"
 EOF
-  run_tool "fast" "${JOB_DIR}/fast.yml"
+  maybe_run_tool "fast" "${JOB_DIR}/fast.yml"
 else
   skip_tool "fast" "missing BET output"
 fi
@@ -595,7 +629,7 @@ input:
   path: "${T1W}"
 output: "first_out"
 EOF
-  run_tool "run_first_all" "${JOB_DIR}/run_first_all.yml"
+  maybe_run_tool "run_first_all" "${JOB_DIR}/run_first_all.yml"
 else
   skip_tool "run_first_all" "missing T1w"
 fi
@@ -608,7 +642,7 @@ input:
   path: "${T1W}"
 output_dir: "sienax_out"
 EOF
-  run_tool "sienax" "${JOB_DIR}/sienax.yml"
+  maybe_run_tool "sienax" "${JOB_DIR}/sienax.yml"
 else
   skip_tool "sienax" "missing T1w"
 fi
@@ -629,7 +663,7 @@ noseg: true
 nosubcortseg: true
 nocleanup: true
 EOF
-  run_tool "fsl_anat" "${JOB_DIR}/fsl_anat.yml"
+  maybe_run_tool "fsl_anat" "${JOB_DIR}/fsl_anat.yml"
 else
   skip_tool "fsl_anat" "missing T1w"
 fi
@@ -642,7 +676,7 @@ input:
   path: "${BOLD}"
 output: "mcflirt_out"
 EOF
-  run_tool "mcflirt" "${JOB_DIR}/mcflirt.yml"
+  maybe_run_tool "mcflirt" "${JOB_DIR}/mcflirt.yml"
 else
   skip_tool "mcflirt" "missing BOLD"
 fi
@@ -662,7 +696,7 @@ EOF
 tr: ${BOLD_TR}
 EOF
   fi
-  run_tool "slicetimer" "${JOB_DIR}/slicetimer.yml"
+  maybe_run_tool "slicetimer" "${JOB_DIR}/slicetimer.yml"
 else
   skip_tool "slicetimer" "missing BOLD"
 fi
@@ -677,7 +711,7 @@ brightness_threshold: 100
 fwhm: 5
 output: "susan_out"
 EOF
-  run_tool "susan" "${JOB_DIR}/susan.yml"
+  maybe_run_tool "susan" "${JOB_DIR}/susan.yml"
 else
   skip_tool "susan" "missing T1w"
 fi
@@ -692,7 +726,7 @@ output: "roi_out"
 t_min: 0
 t_size: 1
 EOF
-  run_tool "fslroi" "${JOB_DIR}/fslroi.yml"
+  maybe_run_tool "fslroi" "${JOB_DIR}/fslroi.yml"
 else
   skip_tool "fslroi" "missing BOLD"
 fi
@@ -707,10 +741,14 @@ input:
 output_basename: "bold_split"
 dimension: t
 EOF
-  run_tool "fslsplit" "${JOB_DIR}/fslsplit.yml"
-  SPLIT_FILES=( "${OUT_DIR}/fslsplit"/bold_split*.nii* )
-  if [[ "${#SPLIT_FILES[@]}" -lt 2 ]]; then
-    SPLIT_FILES=()
+  maybe_run_tool "fslsplit" "${JOB_DIR}/fslsplit.yml"
+  if [[ "$RUN_TOOLS" -eq 0 ]]; then
+    SPLIT_FILES=( "${OUT_DIR}/fslsplit/bold_split0000.nii.gz" "${OUT_DIR}/fslsplit/bold_split0001.nii.gz" )
+  else
+    SPLIT_FILES=( "${OUT_DIR}/fslsplit"/bold_split*.nii* )
+    if [[ "${#SPLIT_FILES[@]}" -lt 2 ]]; then
+      SPLIT_FILES=()
+    fi
   fi
 else
   skip_tool "fslsplit" "missing BOLD"
@@ -728,8 +766,12 @@ input_files:
   - class: File
     path: "${SPLIT_FILES[1]}"
 EOF
-  run_tool "fslmerge" "${JOB_DIR}/fslmerge.yml"
-  MERGED_4D="$(first_match "${OUT_DIR}/fslmerge/bold_merge.nii.gz" "${OUT_DIR}/fslmerge/bold_merge.nii")"
+  maybe_run_tool "fslmerge" "${JOB_DIR}/fslmerge.yml"
+  if [[ "$RUN_TOOLS" -eq 0 ]]; then
+    MERGED_4D="${OUT_DIR}/fslmerge/bold_merge.nii.gz"
+  else
+    MERGED_4D="$(first_match "${OUT_DIR}/fslmerge/bold_merge.nii.gz" "${OUT_DIR}/fslmerge/bold_merge.nii")"
+  fi
 else
   skip_tool "fslmerge" "missing split volumes"
 fi
@@ -760,7 +802,7 @@ mask:
   path: "${BOLD_MASK:-$BET_MASK}"
 output: "meants.txt"
 EOF
-  run_tool "fslmeants" "${JOB_DIR}/fslmeants.yml"
+  maybe_run_tool "fslmeants" "${JOB_DIR}/fslmeants.yml"
 else
   skip_tool "fslmeants" "missing BOLD or usable mask"
 fi
@@ -775,8 +817,12 @@ input_files:
 output_dir: "melodic_out"
 dim: 5
 EOF
-  run_tool "melodic" "${JOB_DIR}/melodic.yml"
-  MELODIC_IC="$(first_match "${OUT_DIR}/melodic/melodic_out/melodic_IC.nii.gz" "${OUT_DIR}/melodic/melodic_out/melodic_IC.nii")"
+  maybe_run_tool "melodic" "${JOB_DIR}/melodic.yml"
+  if [[ "$RUN_TOOLS" -eq 0 ]]; then
+    MELODIC_IC="${OUT_DIR}/melodic/melodic_out/melodic_IC.nii.gz"
+  else
+    MELODIC_IC="$(first_match "${OUT_DIR}/melodic/melodic_out/melodic_IC.nii.gz" "${OUT_DIR}/melodic/melodic_out/melodic_IC.nii")"
+  fi
 else
   skip_tool "melodic" "missing BOLD"
 fi
@@ -796,7 +842,7 @@ design_file:
   path: "${FILM_DESIGN}"
 results_dir: "film_gls_results"
 EOF
-    run_tool "film_gls" "${JOB_DIR}/film_gls.yml"
+    maybe_run_tool "film_gls" "${JOB_DIR}/film_gls.yml"
   else
     skip_tool "film_gls" "could not determine BOLD volume count"
   fi
@@ -831,13 +877,17 @@ mask:
   path: "${BOLD_MASK}"
 EOF
   fi
-  run_tool "randomise" "${JOB_DIR}/randomise.yml"
+  maybe_run_tool "randomise" "${JOB_DIR}/randomise.yml"
 else
   skip_tool "randomise" "missing merged 4D input"
 fi
 
 # --- CLUSTER ---
-CLUSTER_INPUT="$(first_match "${OUT_DIR}/randomise/randomise_out_tstat1.nii.gz" "${OUT_DIR}/randomise/randomise_out_tstat1.nii" "${FSLMATHS_OUT}")"
+if [[ "$RUN_TOOLS" -eq 0 ]]; then
+  CLUSTER_INPUT="${OUT_DIR}/randomise/randomise_out_tstat1.nii.gz"
+else
+  CLUSTER_INPUT="$(first_match "${OUT_DIR}/randomise/randomise_out_tstat1.nii.gz" "${OUT_DIR}/randomise/randomise_out_tstat1.nii" "${FSLMATHS_OUT}")"
+fi
 if [[ -n "$CLUSTER_INPUT" ]]; then
   cat > "${JOB_DIR}/cluster.yml" <<EOF
 input:
@@ -847,7 +897,7 @@ threshold: 1.0
 oindex: "cluster_index"
 othresh: "cluster_thresh"
 EOF
-  run_tool "cluster" "${JOB_DIR}/cluster.yml"
+  maybe_run_tool "cluster" "${JOB_DIR}/cluster.yml"
 else
   skip_tool "cluster" "missing cluster input"
 fi
@@ -875,7 +925,7 @@ input_files:
   - class: File
     path: "${BOLD}"
 EOF
-  run_tool "dual_regression" "${JOB_DIR}/dual_regression.yml"
+  maybe_run_tool "dual_regression" "${JOB_DIR}/dual_regression.yml"
 else
   skip_tool "dual_regression" "missing melodic ICs or BOLD"
 fi
@@ -903,7 +953,7 @@ cov_split_file:
 run_mode: ols
 log_dir: "flameo_stats"
 EOF
-  run_tool "flameo" "${JOB_DIR}/flameo.yml"
+  maybe_run_tool "flameo" "${JOB_DIR}/flameo.yml"
 else
   skip_tool "flameo" "missing merged 4D or usable mask"
 fi
@@ -994,7 +1044,7 @@ miter: "1"
 subsamp: "1"
 fwhm: "4"
 EOF
-    run_tool "topup" "${JOB_DIR}/topup.yml"
+    maybe_run_tool "topup" "${JOB_DIR}/topup.yml"
   else
     skip_tool "topup" "failed to build topup input"
   fi
@@ -1034,7 +1084,7 @@ unwarp: "fugue_unwarp"
 dwell: 0.0005
 unwarpdir: y
 EOF
-    run_tool "fugue" "${JOB_DIR}/fugue.yml"
+    maybe_run_tool "fugue" "${JOB_DIR}/fugue.yml"
   else
     skip_tool "fugue" "failed to create fugue input"
   fi
@@ -1071,7 +1121,7 @@ input2:
   path: "${SIENA_T1B}"
 output_dir: "siena_out"
 EOF
-  run_tool "siena" "${JOB_DIR}/siena.yml"
+  maybe_run_tool "siena" "${JOB_DIR}/siena.yml"
 else
   skip_tool "siena" "missing longitudinal T1w"
 fi
@@ -1103,7 +1153,7 @@ seed:
   path: "${MASK_PATH}"
 output_dir: "probtrackx_out"
 EOF
-      run_tool "probtrackx2" "${JOB_DIR}/probtrackx2.yml"
+      maybe_run_tool "probtrackx2" "${JOB_DIR}/probtrackx2.yml"
     else
       skip_tool "probtrackx2" "bedpostx outputs missing"
     fi
@@ -1114,10 +1164,15 @@ else
   skip_tool "probtrackx2" "missing DWI/bvec/bval"
 fi
 
-PASS_COUNT="$(awk -F $'\t' 'NR>1 && $2=="PASS" {c++} END {print c+0}' "$SUMMARY_FILE")"
-FAIL_COUNT="$(awk -F $'\t' 'NR>1 && $2=="FAIL" {c++} END {print c+0}' "$SUMMARY_FILE")"
-SKIP_COUNT="$(awk -F $'\t' 'NR>1 && $2=="SKIP" {c++} END {print c+0}' "$SUMMARY_FILE")"
+if [[ "$RUN_TOOLS" -eq 1 ]]; then
+  PASS_COUNT="$(awk -F $'\t' 'NR>1 && $2=="PASS" {c++} END {print c+0}' "$SUMMARY_FILE")"
+  FAIL_COUNT="$(awk -F $'\t' 'NR>1 && $2=="FAIL" {c++} END {print c+0}' "$SUMMARY_FILE")"
+  SKIP_COUNT="$(awk -F $'\t' 'NR>1 && $2=="SKIP" {c++} END {print c+0}' "$SUMMARY_FILE")"
 
-echo "Verification complete."
-echo "Summary: ${SUMMARY_FILE}"
-echo "Results: PASS=${PASS_COUNT} FAIL=${FAIL_COUNT} SKIP=${SKIP_COUNT}"
+  echo "Verification complete."
+  echo "Summary: ${SUMMARY_FILE}"
+  echo "Results: PASS=${PASS_COUNT} FAIL=${FAIL_COUNT} SKIP=${SKIP_COUNT}"
+else
+  echo "Job generation complete."
+  echo "Job files: ${JOB_DIR}"
+fi
