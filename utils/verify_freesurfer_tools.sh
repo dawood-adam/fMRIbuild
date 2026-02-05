@@ -34,6 +34,7 @@ CWL_DIR="${ROOT_DIR}/public/cwl/freesurfer"
 FREESURFER_IMAGE="${FREESURFER_DOCKER_IMAGE:-freesurfer/freesurfer:7.4.1}"
 RERUN_PASSED=0
 PASS_CACHE_FILE=""
+RUN_TOOLS=1
 
 LICENSE_FILE="${FS_LICENSE:-}"
 
@@ -46,8 +47,11 @@ for arg in "$@"; do
     --rerun-passed|--rerun-all)
       RERUN_PASSED=1
       ;;
+    --jobs-only)
+      RUN_TOOLS=0
+      ;;
     --help|-h)
-      echo "Usage: $(basename "$0") [--rerun-passed|--rerun-all]"
+      echo "Usage: $(basename "$0") [--rerun-passed|--rerun-all] [--jobs-only]"
       exit 0
       ;;
     *)
@@ -76,6 +80,9 @@ ensure_repo_data_gitignore() {
 skip_tool() {
   local name="$1"
   local reason="${2:-}"
+  if [[ "$RUN_TOOLS" -ne 1 ]]; then
+    return 0
+  fi
   echo -e "${name}\tSKIP" >>"$SUMMARY_FILE"
   if [[ -n "$reason" ]]; then
     echo "SKIP: ${reason}" >>"${LOG_DIR}/${name}.log"
@@ -185,6 +192,12 @@ run_tool() {
   fi
   echo -e "${name}\t${status}" >>"$SUMMARY_FILE"
   return 0
+}
+
+maybe_run_tool() {
+  if [[ "$RUN_TOOLS" -eq 1 ]]; then
+    maybe_run_tool "$@"
+  fi
 }
 
 require_cmd cwltool
@@ -610,60 +623,65 @@ ref:
 EOF
 
 # Run tools
-run_tool "mri_convert" "${JOB_DIR}/mri_convert.yml"
-run_tool "mri_watershed" "${JOB_DIR}/mri_watershed.yml"
-run_tool "mri_normalize" "${JOB_DIR}/mri_normalize.yml"
+maybe_run_tool "mri_convert" "${JOB_DIR}/mri_convert.yml"
+maybe_run_tool "mri_watershed" "${JOB_DIR}/mri_watershed.yml"
+maybe_run_tool "mri_normalize" "${JOB_DIR}/mri_normalize.yml"
 
-if [[ -f "${OUT_DIR}/mri_normalize/bert_norm.mgz" ]]; then
-  run_tool "mri_segment" "${JOB_DIR}/mri_segment.yml"
+if [[ "$RUN_TOOLS" -eq 0 || -f "${OUT_DIR}/mri_normalize/bert_norm.mgz" ]]; then
+  maybe_run_tool "mri_segment" "${JOB_DIR}/mri_segment.yml"
 else
   skip_tool "mri_segment" "missing mri_normalize output"
 fi
 
-run_tool "bbregister" "${JOB_DIR}/bbregister.yml"
-run_tool "mri_annotation2label" "${JOB_DIR}/mri_annotation2label.yml"
-run_tool "mri_label2vol" "${JOB_DIR}/mri_label2vol.yml"
-run_tool "mri_aparc2aseg" "${JOB_DIR}/mri_aparc2aseg.yml"
-run_tool "mri_segstats" "${JOB_DIR}/mri_segstats.yml"
-run_tool "aparcstats2table" "${JOB_DIR}/aparcstats2table.yml"
-run_tool "asegstats2table" "${JOB_DIR}/asegstats2table.yml"
-run_tool "mris_anatomical_stats" "${JOB_DIR}/mris_anatomical_stats.yml"
-run_tool "mris_inflate" "${JOB_DIR}/mris_inflate.yml"
+maybe_run_tool "bbregister" "${JOB_DIR}/bbregister.yml"
+maybe_run_tool "mri_annotation2label" "${JOB_DIR}/mri_annotation2label.yml"
+maybe_run_tool "mri_label2vol" "${JOB_DIR}/mri_label2vol.yml"
+maybe_run_tool "mri_aparc2aseg" "${JOB_DIR}/mri_aparc2aseg.yml"
+maybe_run_tool "mri_segstats" "${JOB_DIR}/mri_segstats.yml"
+maybe_run_tool "aparcstats2table" "${JOB_DIR}/aparcstats2table.yml"
+maybe_run_tool "asegstats2table" "${JOB_DIR}/asegstats2table.yml"
+maybe_run_tool "mris_anatomical_stats" "${JOB_DIR}/mris_anatomical_stats.yml"
+maybe_run_tool "mris_inflate" "${JOB_DIR}/mris_inflate.yml"
 
-if [[ -f "${OUT_DIR}/mris_inflate/lh.inflated.test" ]]; then
-  run_tool "mris_sphere" "${JOB_DIR}/mris_sphere.yml"
+if [[ "$RUN_TOOLS" -eq 0 || -f "${OUT_DIR}/mris_inflate/lh.inflated.test" ]]; then
+  maybe_run_tool "mris_sphere" "${JOB_DIR}/mris_sphere.yml"
 else
   skip_tool "mris_sphere" "missing mris_inflate output"
 fi
 
-run_tool "mri_vol2surf" "${JOB_DIR}/mri_vol2surf.yml"
+maybe_run_tool "mri_vol2surf" "${JOB_DIR}/mri_vol2surf.yml"
 
-if [[ -f "${OUT_DIR}/mri_vol2surf/vol2surf.mgh" ]]; then
-  run_tool "mri_surf2vol" "${JOB_DIR}/mri_surf2vol.yml"
+if [[ "$RUN_TOOLS" -eq 0 || -f "${OUT_DIR}/mri_vol2surf/vol2surf.mgh" ]]; then
+  maybe_run_tool "mri_surf2vol" "${JOB_DIR}/mri_surf2vol.yml"
 else
   skip_tool "mri_surf2vol" "missing mri_vol2surf output"
 fi
 
-run_tool "mris_preproc" "${JOB_DIR}/mris_preproc.yml"
+maybe_run_tool "mris_preproc" "${JOB_DIR}/mris_preproc.yml"
 
-if [[ -f "${OUT_DIR}/mris_preproc/mris_preproc.mgh" ]]; then
-  run_tool "mri_glmfit" "${JOB_DIR}/mri_glmfit.yml"
+if [[ "$RUN_TOOLS" -eq 0 || -f "${OUT_DIR}/mris_preproc/mris_preproc.mgh" ]]; then
+  maybe_run_tool "mri_glmfit" "${JOB_DIR}/mri_glmfit.yml"
 else
   skip_tool "mri_glmfit" "missing mris_preproc output"
 fi
 
 if [[ -n "${CLASSIFIER_GCS}" && -f "${CLASSIFIER_GCS}" ]]; then
-  run_tool "mris_ca_label" "${JOB_DIR}/mris_ca_label.yml"
+  maybe_run_tool "mris_ca_label" "${JOB_DIR}/mris_ca_label.yml"
 else
   skip_tool "mris_ca_label" "missing classifier file"
 fi
 
-run_tool "dmri_postreg" "${JOB_DIR}/dmri_postreg.yml"
+maybe_run_tool "dmri_postreg" "${JOB_DIR}/dmri_postreg.yml"
 
-PASS_COUNT="$(awk -F $'\t' 'NR>1 && $2=="PASS" {c++} END {print c+0}' "$SUMMARY_FILE")"
-FAIL_COUNT="$(awk -F $'\t' 'NR>1 && $2=="FAIL" {c++} END {print c+0}' "$SUMMARY_FILE")"
-SKIP_COUNT="$(awk -F $'\t' 'NR>1 && $2=="SKIP" {c++} END {print c+0}' "$SUMMARY_FILE")"
+if [[ "$RUN_TOOLS" -eq 1 ]]; then
+  PASS_COUNT="$(awk -F $'\t' 'NR>1 && $2=="PASS" {c++} END {print c+0}' "$SUMMARY_FILE")"
+  FAIL_COUNT="$(awk -F $'\t' 'NR>1 && $2=="FAIL" {c++} END {print c+0}' "$SUMMARY_FILE")"
+  SKIP_COUNT="$(awk -F $'\t' 'NR>1 && $2=="SKIP" {c++} END {print c+0}' "$SUMMARY_FILE")"
 
-echo "Verification complete."
-echo "Summary: ${SUMMARY_FILE}"
-echo "Results: PASS=${PASS_COUNT} FAIL=${FAIL_COUNT} SKIP=${SKIP_COUNT}"
+  echo "Verification complete."
+  echo "Summary: ${SUMMARY_FILE}"
+  echo "Results: PASS=${PASS_COUNT} FAIL=${FAIL_COUNT} SKIP=${SKIP_COUNT}"
+else
+  echo "Job generation complete."
+  echo "Job files: ${JOB_DIR}"
+fi

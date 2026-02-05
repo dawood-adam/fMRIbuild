@@ -55,6 +55,10 @@ sudo service docker start
 | `download_freesurfer_test_data.sh` | Download FreeSurfer test subject (bert) |
 | `build_afni_test_image.sh` | Build custom AFNI Docker image with R |
 | `verify_fsl_tools.sh` | Run all FSL CWL tools and report results |
+| `verify_fsl_edges.sh` | Build a compatibility edge matrix for FSL tool pairs |
+| `verify_fsl_chains.sh` | Run chain tests for FSL tools (length N) |
+| `verify_cwl_edges.sh` | Build a compatibility edge matrix for all CWL tools in the repo |
+| `verify_cwl_chains.sh` | Run chain tests across all CWL tools (length N) |
 | `verify_afni_tools.sh` | Run all AFNI CWL tools and report results |
 | `verify_ants_tools.sh` | Run all ANTs CWL tools and report results |
 | `verify_freesurfer_tools.sh` | Run all FreeSurfer CWL tools and report results |
@@ -87,6 +91,12 @@ bash utils/download_freesurfer_test_data.sh
 # FSL (30 tools)
 bash utils/verify_fsl_tools.sh
 
+# FSL compatibility matrix (pairwise edges)
+bash utils/verify_fsl_edges.sh
+
+# FSL chain testing (chains of length 3)
+bash utils/verify_fsl_chains.sh --chain-length=3
+
 # AFNI (44 tools)
 bash utils/verify_afni_tools.sh
 
@@ -97,6 +107,79 @@ bash utils/verify_ants_tools.sh
 export FS_LICENSE="/path/to/license.txt"
 bash utils/verify_freesurfer_tools.sh
 ```
+
+### Running Compatibility and Chains Across All Tools
+
+These scripts build a compatibility matrix across every CWL tool in `public/cwl/*` and then use it to enumerate tool chains.
+
+```bash
+# Build a global compatibility matrix (job templates only)
+bash utils/verify_cwl_edges.sh
+
+# Build a global compatibility matrix and run tools to generate outputs for edge validation
+bash utils/verify_cwl_edges.sh --run-tools
+
+# Run global chains of length 3
+bash utils/verify_cwl_chains.sh --chain-length=3
+```
+
+When `--run-tools` is used, each `verify_<lib>_tools.sh` script is executed without `--jobs-only` so tool outputs exist for runtime edge validation.
+
+Outputs:
+
+```
+tests/work/cwl/edges/edges.tsv
+tests/work/cwl/edges/edges.json
+tests/work/cwl/edges/runs/edges_runtime.tsv
+tests/work/cwl/edges/runs/edges_runtime.json
+tests/work/cwl/edges/runs/edges_validated.tsv
+tests/work/cwl/edges/runs/edges_validated.json
+tests/work/cwl/chains/summary.tsv
+```
+
+### Building a Compatibility Matrix (FSL)
+
+This step tests all ordered tool pairs using CWL input/output metadata and job templates to determine compatible edges.
+
+```bash
+bash utils/verify_fsl_edges.sh
+```
+
+Outputs:
+
+```
+tests/work/fsl/edges/edges.tsv
+tests/work/fsl/edges/edges.json
+```
+
+### Running Tool Chains (FSL)
+
+Tool chain execution uses the edge matrix to enumerate valid chains.
+
+```bash
+# Run chains of length 3 (tool1 → tool2 → tool3)
+bash utils/verify_fsl_chains.sh --chain-length 3
+
+# Limit to the first 10 chains (useful for smoke testing)
+bash utils/verify_fsl_chains.sh --chain-length 3 --max-chains 10
+```
+
+Outputs:
+
+```
+tests/work/fsl/chains/summary.tsv
+tests/work/fsl/chains/<chain_name>/
+```
+
+### Compatibility Rules
+
+Edges are considered valid when:
+
+1. CWL types match (File vs Directory, including array types)
+2. CWL `format` matches (when present), otherwise
+3. Output file extension matches the expected input extension (derived from job templates and CWL output globs)
+
+If a tool has multiple outputs or ambiguous input ports, the edge matrix will pick the best scoring match based on the rules above.
 
 ### Re-running Previously Passed Tests
 

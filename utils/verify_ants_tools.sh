@@ -32,6 +32,7 @@ ANTS_NUM_THREADS="${ANTS_NUM_THREADS:-1}"
 ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS="${ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS:-1}"
 RERUN_PASSED=0
 PASS_CACHE_FILE=""
+RUN_TOOLS=1
 CWLTOOL_ARGS=()
 
 for arg in "$@"; do
@@ -39,8 +40,11 @@ for arg in "$@"; do
     --rerun-passed|--rerun-all)
       RERUN_PASSED=1
       ;;
+    --jobs-only)
+      RUN_TOOLS=0
+      ;;
     --help|-h)
-      echo "Usage: $(basename "$0") [--rerun-passed|--rerun-all]"
+      echo "Usage: $(basename "$0") [--rerun-passed|--rerun-all] [--jobs-only]"
       exit 0
       ;;
     *)
@@ -82,6 +86,9 @@ ensure_repo_data_gitignore() {
 skip_tool() {
   local name="$1"
   local reason="${2:-}"
+  if [[ "$RUN_TOOLS" -ne 1 ]]; then
+    return 0
+  fi
   echo -e "${name}\tSKIP" >>"$SUMMARY_FILE"
   if [[ -n "$reason" ]]; then
     echo "SKIP: ${reason}" >>"${LOG_DIR}/${name}.log"
@@ -213,6 +220,12 @@ run_tool() {
   fi
   echo -e "${name}\t${status}" >>"$SUMMARY_FILE"
   return 0
+}
+
+maybe_run_tool() {
+  if [[ "$RUN_TOOLS" -eq 1 ]]; then
+    maybe_run_tool "$@"
+  fi
 }
 
 require_cmd cwltool
@@ -348,7 +361,7 @@ output_prefix: "denoise"
 dimensionality: 3
 shrink_factor: 2
 EOF
-run_tool "DenoiseImage" "${JOB_DIR}/DenoiseImage.yml"
+maybe_run_tool "DenoiseImage" "${JOB_DIR}/DenoiseImage.yml"
 
 cat >"${JOB_DIR}/N4BiasFieldCorrection.yml" <<EOF
 input_image:
@@ -359,7 +372,7 @@ dimensionality: 3
 shrink_factor: 2
 convergence: "[20x10x0,0.0]"
 EOF
-run_tool "N4BiasFieldCorrection" "${JOB_DIR}/N4BiasFieldCorrection.yml"
+maybe_run_tool "N4BiasFieldCorrection" "${JOB_DIR}/N4BiasFieldCorrection.yml"
 
 cat >"${JOB_DIR}/ThresholdImage.yml" <<EOF
 dimensionality: 3
@@ -372,7 +385,7 @@ threshold_high: 100000
 inside_value: 1
 outside_value: 0
 EOF
-run_tool "ThresholdImage" "${JOB_DIR}/ThresholdImage.yml"
+maybe_run_tool "ThresholdImage" "${JOB_DIR}/ThresholdImage.yml"
 
 cat >"${JOB_DIR}/ImageMath.yml" <<EOF
 dimensionality: 3
@@ -383,7 +396,7 @@ input_image:
   path: "${T1_RES}"
 scalar_value: 2
 EOF
-run_tool "ImageMath" "${JOB_DIR}/ImageMath.yml"
+maybe_run_tool "ImageMath" "${JOB_DIR}/ImageMath.yml"
 
 cat >"${JOB_DIR}/Atropos.yml" <<EOF
 dimensionality: 3
@@ -398,7 +411,7 @@ initialization: "kmeans[2]"
 convergence: "[3,0.001]"
 mrf: "[0.1,1x1x1]"
 EOF
-run_tool "Atropos" "${JOB_DIR}/Atropos.yml"
+maybe_run_tool "Atropos" "${JOB_DIR}/Atropos.yml"
 
 cat >"${JOB_DIR}/antsAtroposN4.yml" <<EOF
 dimensionality: 3
@@ -413,7 +426,7 @@ num_classes: 2
 n4_atropos_iterations: 1
 atropos_iterations: 3
 EOF
-run_tool "antsAtroposN4" "${JOB_DIR}/antsAtroposN4.yml"
+maybe_run_tool "antsAtroposN4" "${JOB_DIR}/antsAtroposN4.yml"
 
 cat >"${JOB_DIR}/antsBrainExtraction.yml" <<EOF
 dimensionality: 3
@@ -429,7 +442,7 @@ brain_probability_mask:
 output_prefix: "brainextract_"
 use_floatingpoint: true
 EOF
-run_tool "antsBrainExtraction" "${JOB_DIR}/antsBrainExtraction.yml"
+maybe_run_tool "antsBrainExtraction" "${JOB_DIR}/antsBrainExtraction.yml"
 
 cat >"${JOB_DIR}/antsCorticalThickness.yml" <<EOF
 dimensionality: 3
@@ -453,7 +466,7 @@ quick_registration: true
 run_stage: "1"
 keep_temporary: true
 EOF
-run_tool "antsCorticalThickness" "${JOB_DIR}/antsCorticalThickness.yml"
+maybe_run_tool "antsCorticalThickness" "${JOB_DIR}/antsCorticalThickness.yml"
 
 cat >"${JOB_DIR}/antsIntermodalityIntrasubject.yml" <<EOF
 dimensionality: 3
@@ -469,7 +482,7 @@ brain_mask:
   path: "${MASK}"
 transform_type: "0"
 EOF
-run_tool "antsIntermodalityIntrasubject" "${JOB_DIR}/antsIntermodalityIntrasubject.yml"
+maybe_run_tool "antsIntermodalityIntrasubject" "${JOB_DIR}/antsIntermodalityIntrasubject.yml"
 
 cat >"${JOB_DIR}/antsJointLabelFusion.yml" <<EOF
 dimensionality: 3
@@ -493,7 +506,7 @@ mask_image:
 parallel_control: 0
 num_threads: 1
 EOF
-run_tool "antsJointLabelFusion" "${JOB_DIR}/antsJointLabelFusion.yml"
+maybe_run_tool "antsJointLabelFusion" "${JOB_DIR}/antsJointLabelFusion.yml"
 
 cat >"${JOB_DIR}/antsMotionCorr.yml" <<EOF
 dimensionality: 3
@@ -511,7 +524,7 @@ shrink_factors: "2x1x1"
 smoothing_sigmas: "1x0x0"
 num_images: 5
 EOF
-run_tool "antsMotionCorr" "${JOB_DIR}/antsMotionCorr.yml"
+maybe_run_tool "antsMotionCorr" "${JOB_DIR}/antsMotionCorr.yml"
 
 cat >"${JOB_DIR}/antsRegistrationSyNQuick.yml" <<EOF
 dimensionality: 3
@@ -527,10 +540,10 @@ num_threads: 1
 precision: "f"
 reproducible: true
 EOF
-run_tool "antsRegistrationSyNQuick" "${JOB_DIR}/antsRegistrationSyNQuick.yml"
+maybe_run_tool "antsRegistrationSyNQuick" "${JOB_DIR}/antsRegistrationSyNQuick.yml"
 
 AFFINE_QUICK="${OUT_DIR}/antsRegistrationSyNQuick/synquick_0GenericAffine.mat"
-if [[ -f "$AFFINE_QUICK" ]]; then
+if [[ "$RUN_TOOLS" -eq 0 || -f "$AFFINE_QUICK" ]]; then
   cat >"${JOB_DIR}/antsApplyTransforms.yml" <<EOF
 dimensionality: 3
 input_image:
@@ -544,7 +557,7 @@ transforms:
   - class: File
     path: "${AFFINE_QUICK}"
 EOF
-  run_tool "antsApplyTransforms" "${JOB_DIR}/antsApplyTransforms.yml"
+  maybe_run_tool "antsApplyTransforms" "${JOB_DIR}/antsApplyTransforms.yml"
 else
   skip_tool "antsApplyTransforms" "Missing affine from antsRegistrationSyNQuick"
 fi
@@ -565,7 +578,7 @@ shrink_factors: "2x1x1"
 smoothing_sigmas: "1x0x0vox"
 use_float: true
 EOF
-run_tool "antsRegistration" "${JOB_DIR}/antsRegistration.yml"
+maybe_run_tool "antsRegistration" "${JOB_DIR}/antsRegistration.yml"
 
 cat >"${JOB_DIR}/antsRegistrationSyN.yml" <<EOF
 dimensionality: 3
@@ -581,7 +594,7 @@ num_threads: 1
 precision: "f"
 reproducible: true
 EOF
-run_tool "antsRegistrationSyN" "${JOB_DIR}/antsRegistrationSyN.yml"
+maybe_run_tool "antsRegistrationSyN" "${JOB_DIR}/antsRegistrationSyN.yml"
 
 cat >"${JOB_DIR}/LabelGeometryMeasures.yml" <<EOF
 dimensionality: 3
@@ -591,7 +604,7 @@ label_image:
 intensity_image: "none"
 output_csv: "label_geometry.csv"
 EOF
-run_tool "LabelGeometryMeasures" "${JOB_DIR}/LabelGeometryMeasures.yml"
+maybe_run_tool "LabelGeometryMeasures" "${JOB_DIR}/LabelGeometryMeasures.yml"
 
 cat >"${JOB_DIR}/KellyKapowski.yml" <<EOF
 dimensionality: 3
@@ -607,7 +620,12 @@ white_matter_prob:
 output_image: "thickness.nii.gz"
 convergence: "[5,0.01,10]"
 EOF
-run_tool "KellyKapowski" "${JOB_DIR}/KellyKapowski.yml"
+maybe_run_tool "KellyKapowski" "${JOB_DIR}/KellyKapowski.yml"
 
-echo "ANTs verification complete."
-echo "Summary: ${SUMMARY_FILE}"
+if [[ "$RUN_TOOLS" -eq 1 ]]; then
+  echo "ANTs verification complete."
+  echo "Summary: ${SUMMARY_FILE}"
+else
+  echo "Job generation complete."
+  echo "Job files: ${JOB_DIR}"
+fi
