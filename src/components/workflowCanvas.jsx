@@ -141,8 +141,8 @@ function WorkflowCanvas({ workflowItems, updateCurrentWorkspaceItems, onSetWorkf
           }
 
           setEdgeModalData({
-            sourceNode: { id: sourceNode.id, label: sourceNode.data.label },
-            targetNode: { id: targetNode.id, label: targetNode.data.label },
+            sourceNode: { id: sourceNode.id, label: sourceNode.data.label, isDummy: sourceNode.data.isDummy || false },
+            targetNode: { id: targetNode.id, label: targetNode.data.label, isDummy: targetNode.data.isDummy || false },
             hasTypeMismatch
           });
           setShowEdgeModal(true);
@@ -163,8 +163,8 @@ function WorkflowCanvas({ workflowItems, updateCurrentWorkspaceItems, onSetWorkf
           setEditingEdge(edge);
           setPendingConnection(null);
           setEdgeModalData({
-            sourceNode: { id: sourceNode.id, label: sourceNode.data.label },
-            targetNode: { id: targetNode.id, label: targetNode.data.label },
+            sourceNode: { id: sourceNode.id, label: sourceNode.data.label, isDummy: sourceNode.data.isDummy || false },
+            targetNode: { id: targetNode.id, label: targetNode.data.label, isDummy: targetNode.data.isDummy || false },
             existingMappings: edge.data?.mappings || []
           });
           setShowEdgeModal(true);

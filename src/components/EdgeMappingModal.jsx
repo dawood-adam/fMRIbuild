@@ -20,6 +20,10 @@ const checkTypeCompatibility = (outputType, inputType, outputExtensions = null, 
 
     const outBase = getBaseType(outputType);
     const inBase = getBaseType(inputType);
+
+    // 'any' type (used by dummy I/O nodes) is always compatible
+    if (outBase === 'any' || inBase === 'any') return { compatible: true };
+
     const outArray = isArrayType(outputType);
     const inArray = isArrayType(inputType);
 
@@ -63,7 +67,16 @@ export { checkTypeCompatibility, getBaseType, isArrayType };
  * Get tool inputs/outputs, with fallback for undefined tools.
  * Includes file extension metadata for validation.
  */
-const getToolIO = (toolLabel) => {
+const getToolIO = (toolLabel, isDummy = false) => {
+    // Dummy I/O nodes accept any data type
+    if (isDummy) {
+        return {
+            outputs: [{ name: 'output', type: 'any', label: 'Output', extensions: [] }],
+            inputs: [{ name: 'input', type: 'any', label: 'Input', acceptedExtensions: null }],
+            isGeneric: true,
+            isDummy: true
+        };
+    }
     const tool = TOOL_MAP[toolLabel];
     if (tool) {
         return {
@@ -109,8 +122,8 @@ const EdgeMappingModal = ({
     const containerRef = useRef(null);
     const [linePositions, setLinePositions] = useState([]);
 
-    const sourceIO = getToolIO(sourceNode?.label);
-    const targetIO = getToolIO(targetNode?.label);
+    const sourceIO = getToolIO(sourceNode?.label, sourceNode?.isDummy);
+    const targetIO = getToolIO(targetNode?.label, targetNode?.isDummy);
 
     // Initialize mappings when modal opens
     useEffect(() => {

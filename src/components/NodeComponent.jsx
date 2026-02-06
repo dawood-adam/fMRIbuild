@@ -209,7 +209,7 @@ const NodeComponent = ({ data }) => {
     // Render simplified UI for dummy nodes (no decoration)
     if (isDummy) {
         return (
-            <div className={`node-wrapper node-dummy node-dummy-${data.label.toLowerCase()}`}>
+            <div className="node-wrapper">
                 <div className="node-content">
                     <Handle type="target" position={Position.Top} />
                     <span className="node-label">{data.label}</span>
