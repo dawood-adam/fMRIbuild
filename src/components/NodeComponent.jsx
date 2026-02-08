@@ -16,7 +16,9 @@ const LIBRARY_MAP = {
     freesurfer: 'FreeSurfer',
     mrtrix3: 'MRtrix3',
     fmriprep: 'fMRIPrep',
-    mriqc: 'MRIQC'
+    mriqc: 'MRIQC',
+    connectome_workbench: 'Connectome Workbench',
+    amico: 'AMICO'
 };
 
 const getLibraryFromDockerImage = (dockerImage) => {

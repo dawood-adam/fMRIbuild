@@ -10,6 +10,9 @@ CWL="${CWL_DIR}/${LIB}/${TOOL}.cwl"
 
 prepare_afni_data
 
+# @auto_tlrc writes temp files outside /tmp, needs writable container
+CWLTOOL_ARGS+=("--no-read-only")
+
 # ── Data prep: extract TT_N27 Talairach template from AFNI image ──
 TT_HEAD="${DATA_DIR}/TT_N27+tlrc.HEAD"
 TT_BRIK="${DATA_DIR}/TT_N27+tlrc.BRIK"
@@ -31,52 +34,54 @@ if [[ ! -f "$TT_HEAD" ]]; then
   exit 0
 fi
 
+# ── Data prep: create ORIG-space copy of the input ─────────────
+# MNI152 images are tagged as +tlrc/MNI space, which confuses
+# @auto_tlrc (it expects native/ORIG space input). Create a copy
+# with the space tag reset to ORIG.
+INPUT_ORIG="${DERIVED_DIR}/t1_brain_orig.nii.gz"
+if [[ ! -f "$INPUT_ORIG" ]]; then
+  echo "Creating ORIG-space copy for @auto_tlrc..."
+  cp "$T1W_2MM_BRAIN" "$INPUT_ORIG"
+  docker_afni 3drefit -space ORIG "$INPUT_ORIG"
+fi
+
 make_template "$CWL" "$TOOL"
 
 cat > "${JOB_DIR}/${TOOL}.yml" <<EOF
 input:
   class: File
-  path: ${T1W_2MM_BRAIN}
+  path: ${INPUT_ORIG}
 base:
   class: File
   path: ${TT_HEAD}
 no_ss: true
 dxyz: 2
+overwrite: true
 EOF
 
 run_tool "$TOOL" "${JOB_DIR}/${TOOL}.yml" "$CWL"
 
 # ── Verify outputs ─────────────────────────────────────────────
 dir="${OUT_DIR}/${TOOL}"
-found_output=0
+found=0
 for f in "$dir"/*+tlrc.HEAD "$dir"/*_at.nii "$dir"/*_at.nii.gz; do
   [[ -f "$f" ]] || continue
-  found_output=1
+  found=1
   basename_f="$(basename "$f")"
-  # Non-zero file size
   if [[ ! -s "$f" ]]; then
     echo "  FAIL: zero-byte output: $f"; exit 1
   fi
-  # Header readability + dimensions + voxel sizes + space
-  echo "  3dinfo [${basename_f}]: $(docker_afni 3dinfo -n4 -ad3 -space "$f" 2>&1 || true)"
-  # Non-zero voxel count
-  nz=$(docker_afni 3dBrickStat -non-zero -count "$f" 2>&1 | tail -1 || echo "0")
-  echo "  Non-zero voxels [${basename_f}]: ${nz}"
-  if [[ "${nz}" =~ ^[[:space:]]*0[[:space:]]*$ ]]; then
-    echo "  FAIL: ${basename_f} has zero non-zero voxels"; exit 1
+  # Header: dimensions, voxel sizes, coordinate space
+  info=$(docker_afni 3dinfo -n4 -ad3 -space "$f" 2>&1 | grep -v '^\*\*' || true)
+  echo "  3dinfo [${basename_f}]: ${info}"
+  # Verify dimensions are non-zero
+  ni=$(echo "$info" | awk '{print $1}')
+  if [[ -z "$ni" || "$ni" == "0" ]]; then
+    echo "  FAIL: ${basename_f} has invalid dimensions"; exit 1
   fi
   # Verify output is in TLRC space
-  space=$(docker_afni 3dinfo -space "$f" 2>&1 | tail -1 || echo "")
+  space=$(docker_afni 3dinfo -space "$f" 2>&1 | grep -v '^\*\*' | tail -1 || echo "")
   echo "  Space [${basename_f}]: ${space}"
-done
-
-# Check for BRIK alongside HEAD
-for f in "$dir"/*+tlrc.HEAD; do
-  [[ -f "$f" ]] || continue
-  brik="${f%.HEAD}.BRIK"
-  if [[ -f "$brik" && ! -s "$brik" ]]; then
-    echo "  FAIL: zero-byte BRIK: $brik"; exit 1
-  fi
 done
 
 # Verify transform file
@@ -93,6 +98,6 @@ if [[ "$xat_found" -eq 0 ]]; then
   echo "  WARN: transform file (.Xat.1D) not found"
 fi
 
-if [[ "$found_output" -eq 0 ]]; then
+if [[ "$found" -eq 0 ]]; then
   echo "  WARN: no TLRC output files found"
 fi

@@ -17,7 +17,9 @@ const DOCKER_IMAGES = {
     FreeSurfer: 'freesurfer/freesurfer',
     MRtrix3: 'mrtrix3/mrtrix3',
     fMRIPrep: 'nipreps/fmriprep',
-    MRIQC: 'nipreps/mriqc'
+    MRIQC: 'nipreps/mriqc',
+    'Connectome Workbench': 'khanlab/connectome-workbench',
+    AMICO: 'cookpa/amico-noddi'
 };
 
 // Maximum number of tags to keep per image

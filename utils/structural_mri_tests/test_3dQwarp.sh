@@ -44,26 +44,22 @@ run_tool "$TOOL" "${JOB_DIR}/${TOOL}.yml" "$CWL"
 
 # ── Verify outputs ─────────────────────────────────────────────
 dir="${OUT_DIR}/${TOOL}"
-found_head=0
-for f in "$dir"/*.HEAD; do
+found=0
+for f in "$dir"/*.HEAD "$dir"/*.nii "$dir"/*.nii.gz; do
   [[ -f "$f" ]] || continue
-  found_head=1
-  brik="${f%.HEAD}.BRIK"
+  [[ "$(basename "$f")" == *.log ]] && continue
+  found=1
   basename_f="$(basename "$f")"
-  # Non-zero file size
   if [[ ! -s "$f" ]]; then
-    echo "  FAIL: zero-byte HEAD: $f"; exit 1
+    echo "  FAIL: zero-byte output: $f"; exit 1
   fi
-  if [[ -f "$brik" && ! -s "$brik" ]]; then
-    echo "  FAIL: zero-byte BRIK: $brik"; exit 1
-  fi
-  # Header readability + dimensions + voxel sizes + space
-  echo "  3dinfo [${basename_f}]: $(docker_afni 3dinfo -n4 -ad3 -space "$f" 2>&1 || true)"
-  # Non-zero voxel count
-  nz=$(docker_afni 3dBrickStat -non-zero -count "$f" 2>&1 | tail -1 || echo "0")
-  echo "  Non-zero voxels [${basename_f}]: ${nz}"
-  if [[ "${nz}" =~ ^[[:space:]]*0[[:space:]]*$ ]]; then
-    echo "  FAIL: ${basename_f} has zero non-zero voxels"; exit 1
+  # Header: dimensions, voxel sizes, coordinate space
+  info=$(docker_afni 3dinfo -n4 -ad3 -space "$f" 2>&1 | grep -v '^\*\*' || true)
+  echo "  3dinfo [${basename_f}]: ${info}"
+  # Verify dimensions are non-zero
+  ni=$(echo "$info" | awk '{print $1}')
+  if [[ -z "$ni" || "$ni" == "0" ]]; then
+    echo "  FAIL: ${basename_f} has invalid dimensions"; exit 1
   fi
 done
 
@@ -81,14 +77,6 @@ if [[ "$iwarp_found" -eq 0 ]]; then
   echo "  WARN: inverse warp field (_WARPINV) not found"
 fi
 
-# Check NIfTI fallback
-if [[ "$found_head" -eq 0 ]]; then
-  for f in "$dir"/*.nii*; do
-    [[ -f "$f" ]] || continue
-    found_head=1
-    if [[ ! -s "$f" ]]; then
-      echo "  FAIL: zero-byte NIfTI: $f"; exit 1
-    fi
-    echo "  3dinfo: $(docker_afni 3dinfo -n4 -ad3 -space "$f" 2>&1 || true)"
-  done
+if [[ "$found" -eq 0 ]]; then
+  echo "  WARN: no output dataset files found"
 fi

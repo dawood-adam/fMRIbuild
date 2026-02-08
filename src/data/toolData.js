@@ -128,6 +128,33 @@ export const toolsByLibrary = {
         keyPoints: 'Requires reversed phase-encode image pair. Default config b02b0.cnf works well for most data. Outputs warp fields reusable by applytopup.',
         typicalUse: 'Distortion correction using blip-up/blip-down acquisitions for fMRI or DWI.',
         docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/topup'
+      },
+      {
+        name: 'applytopup', fullName: 'FSL Apply Topup Distortion Correction',
+        function: 'Applies the susceptibility-induced off-resonance field estimated by topup to correct distortions in EPI images.',
+        modality: '3D or 4D EPI NIfTI plus topup output (movpar.txt and fieldcoef files).',
+        keyParameters: '--imain (input images), --topup (topup output prefix), --datain (acquisition parameters), --inindex (index into datain), --out (output), --method (jac or lsr)',
+        keyPoints: 'Use after running topup. --method=jac applies Jacobian modulation (recommended for fMRI). Can apply to multiple images at once.',
+        typicalUse: 'Applying distortion correction to fMRI or DWI data using pre-computed topup results.',
+        docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/topup/ApplyTopupUsersGuide'
+      },
+      {
+        name: 'fsl_prepare_fieldmap', fullName: 'FSL Fieldmap Preparation',
+        function: 'Prepares a fieldmap for use with FUGUE by converting phase difference images to radians per second.',
+        modality: 'Phase difference image and magnitude image from gradient echo fieldmap acquisition.',
+        keyParameters: '<scanner> <phase_image> <magnitude_image> <output_fieldmap> <delta_TE_ms>',
+        keyPoints: 'Scanner type determines unwrapping method (SIEMENS most common). Delta TE is the echo time difference in milliseconds. Output is in rad/s for use with FUGUE.',
+        typicalUse: 'Converting raw fieldmap images to FUGUE-compatible format for EPI distortion correction.',
+        docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FUGUE/Guide#SIEMENS_data'
+      },
+      {
+        name: 'prelude', fullName: 'FSL Phase Region Expanding Labeller for Unwrapping Discrete Estimates (PRELUDE)',
+        function: 'Performs 3D phase unwrapping on wrapped phase images using a region-growing algorithm.',
+        modality: 'Wrapped phase image (3D NIfTI) plus optional magnitude image for masking.',
+        keyParameters: '-p (wrapped phase), -a (magnitude for mask), -o (output unwrapped phase), -m (brain mask), -f (apply phase filter)',
+        keyPoints: 'Essential preprocessing for fieldmap-based distortion correction. Magnitude image improves unwrapping quality. Can handle phase wraps > 2pi.',
+        typicalUse: 'Unwrapping phase images before fieldmap calculation for distortion correction.',
+        docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FUGUE/Guide#PRELUDE_.28phase_unwrapping.29'
       }
     ],
     'Smoothing': [
@@ -264,6 +291,15 @@ export const toolsByLibrary = {
         keyPoints: 'Threshold determines which voxels are included in skeleton. Creates all_FA_skeletonised (4D) ready for randomise. Can also project non-FA data (MD, etc.) using tbss_non_FA.',
         typicalUse: 'Final TBSS step before statistical analysis with randomise.',
         docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/TBSS/UserGuide'
+      },
+      {
+        name: 'tbss_non_FA', fullName: 'TBSS Non-FA Image Projection',
+        function: 'Projects non-FA diffusion images (MD, AD, RD, etc.) onto the mean FA skeleton using the same registration from the FA-based TBSS pipeline.',
+        modality: 'Non-FA diffusion scalar maps (3D NIfTI) in same space as FA images used for TBSS.',
+        keyParameters: '<non_FA_image> (e.g., all_MD) - run after tbss_4_prestats with non-FA data in stats directory',
+        keyPoints: 'Must run full TBSS pipeline on FA first. Non-FA images must be in same native space as original FA. Creates all_<measure>_skeletonised for use with randomise.',
+        typicalUse: 'Analyzing MD, AD, RD, or other diffusion metrics on the FA-derived skeleton.',
+        docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/TBSS/UserGuide#Using_non-FA_Images_in_TBSS'
       }
     ],
     'ASL Processing': [
@@ -360,6 +396,15 @@ export const toolsByLibrary = {
         keyPoints: 'Only applies 90-degree rotations/flips (no interpolation). Does not register to standard space. Should be run as first step before any processing.',
         typicalUse: 'Ensuring consistent orientation before processing.',
         docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Orientation%20Explained'
+      },
+      {
+        name: 'robustfov', fullName: 'FSL Robust Field of View Reduction',
+        function: 'Automatically identifies and removes neck/non-brain tissue by estimating the brain center and reducing the field of view to a standard size.',
+        modality: 'T1-weighted 3D NIfTI volume (full head coverage).',
+        keyParameters: '-i (input), -r (output ROI volume), -m (output transformation matrix), -b (brain size estimate in mm, default 170)',
+        keyPoints: 'Useful for images with extensive neck coverage. Run before BET for more robust brain extraction. Does not resample, just crops.',
+        typicalUse: 'Preprocessing step before brain extraction to remove neck and improve BET robustness.',
+        docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/fsl_anat'
       }
     ],
     'Warp Utilities': [
@@ -400,6 +445,17 @@ export const toolsByLibrary = {
         keyPoints: 'Reports cluster size, peak coordinates, and p-values. Use with -c to get mean COPE within clusters. GRF-based p-values require smoothness estimates.',
         typicalUse: 'Cluster-based thresholding and extracting peak coordinates from statistical maps.',
         docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Cluster'
+      }
+    ],
+    'Lesion Segmentation': [
+      {
+        name: 'bianca', fullName: 'Brain Intensity AbNormality Classification Algorithm (BIANCA)',
+        function: 'Automated white matter hyperintensity (WMH) segmentation using supervised machine learning (k-nearest neighbor) trained on manually labeled data.',
+        modality: 'T1-weighted and FLAIR images (3D NIfTI), plus training data with manual WMH masks.',
+        keyParameters: '--singlefile (input file list), --labelfeaturenum (which feature is the manual label), --brainmaskfeaturenum (brain mask feature), --querysubjectnum (subject to segment), --trainingnums (training subjects)',
+        keyPoints: 'Requires training data with manual WMH labels. Uses spatial and intensity features. Performance depends on training data quality and similarity to test data.',
+        typicalUse: 'Automated white matter lesion segmentation in aging, small vessel disease, or MS studies.',
+        docUrl: 'https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BIANCA'
       }
     ]
   },
@@ -487,6 +543,7 @@ export const toolsByLibrary = {
 
   FreeSurfer: {
     'Surface Reconstruction': [
+      { name: 'recon-all', fullName: 'FreeSurfer Complete Cortical Reconstruction Pipeline', function: 'Fully automated pipeline for cortical surface reconstruction and parcellation, including skull stripping, segmentation, surface tessellation, topology correction, inflation, registration, and parcellation.', modality: 'T1-weighted 3D NIfTI or DICOM. Optional T2w or FLAIR for pial surface refinement.', keyParameters: '-s (subject ID), -i (input T1w), -T2 (T2w image for pial), -FLAIR (FLAIR for pial), -all (run full pipeline), -autorecon1/-autorecon2/-autorecon3 (run specific stages)', keyPoints: 'Runtime 6-24 hours per subject. Creates cortical surfaces (white, pial), parcellations (Desikan-Killiany, Destrieux), subcortical segmentation (aseg), and morphometric measures. Use -T2pial or -FLAIRpial for improved pial surface placement.', typicalUse: 'Complete cortical reconstruction for surface-based morphometry, parcellation-based analysis, and as prerequisite for fMRI surface analysis.', docUrl: 'https://surfer.nmr.mgh.harvard.edu/fswiki/recon-all' },
       { name: 'mri_convert', fullName: 'FreeSurfer MRI Format Conversion (mri_convert)', function: 'Converts between neuroimaging file formats (DICOM, NIfTI, MGH/MGZ, ANALYZE, etc.) with optional resampling and conforming.', modality: 'Any neuroimaging volume format.', keyParameters: '--conform (resample to 256 cubed at 1mm isotropic), --out_type (output format), -vs (voxel size)', keyPoints: 'Use --conform to prepare T1 for FreeSurfer processing. Handles DICOM to NIfTI conversion. Can change voxel size and data type.', typicalUse: 'Converting DICOM to NIfTI, conforming images to FreeSurfer standards.', docUrl: 'https://surfer.nmr.mgh.harvard.edu/fswiki/mri_convert' },
       { name: 'mri_watershed', fullName: 'FreeSurfer MRI Watershed Skull Stripping', function: 'Brain extraction using a hybrid watershed/surface deformation algorithm to find the brain-skull boundary.', modality: 'T1-weighted 3D volume (typically MGZ format within FreeSurfer pipeline).', keyParameters: '-T1 (specify T1 volume), -atlas (use atlas for initial estimate), -h (preflooding height, default 25)', keyPoints: 'Core component of recon-all. Adjust -h parameter if too much/too little brain removed. Usually part of autorecon1.', typicalUse: 'Brain extraction within recon-all pipeline.', docUrl: 'https://surfer.nmr.mgh.harvard.edu/fswiki/mri_watershed' },
       { name: 'mri_normalize', fullName: 'FreeSurfer MRI Intensity Normalization', function: 'Normalizes T1 image intensities so that white matter has a target intensity value (default 110).', modality: 'T1-weighted 3D volume (MGZ format, within FreeSurfer pipeline).', keyParameters: '-n (number of iterations), -b (bias field smoothing sigma), -aseg (use aseg for normalization regions)', keyPoints: 'Part of recon-all autorecon1. Creates nu.mgz (non-uniformity corrected) and T1.mgz (intensity normalized).', typicalUse: 'Preparing T1 for segmentation within FreeSurfer pipeline.', docUrl: 'https://surfer.nmr.mgh.harvard.edu/fswiki/mri_normalize' },
@@ -586,10 +643,78 @@ export const toolsByLibrary = {
     'Pipeline': [
       { name: 'mriqc', fullName: 'MRIQC: MRI Quality Control Pipeline', function: 'Automated quality control pipeline that extracts image quality metrics (IQMs) from structural and functional MRI and generates visual reports.', modality: 'BIDS-formatted dataset containing T1w, T2w, and/or BOLD fMRI data (NIfTI format).', keyParameters: '<bids_dir> <output_dir> participant, --participant-label (subject IDs), --modalities (T1w, T2w, bold), --no-sub (skip submission to web API)', keyPoints: 'Requires BIDS-formatted input. Computes dozens of IQMs (SNR, CNR, EFC, FBER, motion metrics). Generates individual and group-level visual reports.', typicalUse: 'Automated quality assessment of MRI data before preprocessing.', docUrl: 'https://mriqc.readthedocs.io/en/stable/' }
     ]
+  },
+
+  'Connectome Workbench': {
+    'CIFTI Operations': [
+      {
+        name: 'wb_command_cifti_create_dense_timeseries', fullName: 'Connectome Workbench CIFTI Dense Timeseries Creation',
+        function: 'Creates a CIFTI dense timeseries file (.dtseries.nii) combining cortical surface data with subcortical volume data in a single grayordinates representation.',
+        modality: 'Surface GIFTI files (left/right hemisphere) plus subcortical volume NIfTI, or volume-only input.',
+        keyParameters: '<cifti-out> -volume <volume> <label> -left-metric <metric> -right-metric <metric> -timestep <seconds> -timestart <seconds>',
+        keyPoints: 'Core format for HCP-style analysis. Combines cortical surfaces and subcortical volumes. Standard grayordinate space is 91k (32k per hemisphere + subcortical).',
+        typicalUse: 'Creating CIFTI format fMRI data for HCP-style surface-based analysis.',
+        docUrl: 'https://www.humanconnectome.org/software/workbench-command/-cifti-create-dense-timeseries'
+      },
+      {
+        name: 'wb_command_cifti_separate', fullName: 'Connectome Workbench CIFTI Separate',
+        function: 'Extracts surface or volume components from a CIFTI file into separate GIFTI metric or NIfTI volume files.',
+        modality: 'CIFTI dense file (.dscalar.nii, .dtseries.nii, etc.).',
+        keyParameters: '<cifti-in> <direction> -volume-all <volume-out> -metric <structure> <metric-out>',
+        keyPoints: 'Opposite of cifti-create operations. Useful for extracting data for tools that do not support CIFTI format.',
+        typicalUse: 'Extracting surface or volume data from CIFTI files for further processing.',
+        docUrl: 'https://www.humanconnectome.org/software/workbench-command/-cifti-separate'
+      }
+    ],
+    'Surface Smoothing': [
+      {
+        name: 'wb_command_cifti_smoothing', fullName: 'Connectome Workbench CIFTI Smoothing',
+        function: 'Applies geodesic Gaussian smoothing to CIFTI data on cortical surfaces and Euclidean smoothing in subcortical volumes.',
+        modality: 'CIFTI dense file plus surface files for each hemisphere.',
+        keyParameters: '<cifti-in> <surface-kernel> <volume-kernel> <direction> <cifti-out> -left-surface <surface> -right-surface <surface> -fix-zeros-volume -fix-zeros-surface',
+        keyPoints: 'Surface smoothing follows cortical geometry (geodesic). Typical kernel 4-6mm FWHM. -fix-zeros prevents smoothing across medial wall.',
+        typicalUse: 'Spatial smoothing of fMRI data in CIFTI format for HCP-style pipelines.',
+        docUrl: 'https://www.humanconnectome.org/software/workbench-command/-cifti-smoothing'
+      },
+      {
+        name: 'wb_command_metric_smoothing', fullName: 'Connectome Workbench Surface Metric Smoothing',
+        function: 'Applies geodesic Gaussian smoothing to surface metric data following the cortical surface geometry.',
+        modality: 'Surface GIFTI (.surf.gii) plus metric GIFTI (.func.gii or .shape.gii).',
+        keyParameters: '<surface> <metric-in> <smoothing-kernel> <metric-out> -roi <roi-metric> -fix-zeros',
+        keyPoints: 'Smoothing follows cortical folding pattern rather than 3D Euclidean distance. ROI can restrict smoothing to specific regions.',
+        typicalUse: 'Smoothing surface-based data (thickness, curvature, fMRI) for visualization or statistics.',
+        docUrl: 'https://www.humanconnectome.org/software/workbench-command/-metric-smoothing'
+      }
+    ],
+    'Surface Registration': [
+      {
+        name: 'wb_command_surface_sphere_project_unproject', fullName: 'Connectome Workbench Surface Registration Transform',
+        function: 'Applies MSM or FreeSurfer spherical registration by projecting coordinates through registered sphere to target space.',
+        modality: 'Surface GIFTI files (sphere-in, sphere-project-to, sphere-unproject-from).',
+        keyParameters: '<surface-in> <sphere-in> <sphere-project-to> <sphere-unproject-from> <surface-out>',
+        keyPoints: 'Core operation for applying surface-based registration. Used to resample surfaces to different template spaces (fsaverage, fs_LR).',
+        typicalUse: 'Applying surface registration transforms to resample data between atlas spaces.',
+        docUrl: 'https://www.humanconnectome.org/software/workbench-command/-surface-sphere-project-unproject'
+      }
+    ]
+  },
+
+  AMICO: {
+    'Microstructure Modeling': [
+      {
+        name: 'amico_noddi', fullName: 'AMICO NODDI Fitting',
+        function: 'Fits the NODDI (Neurite Orientation Dispersion and Density Imaging) model to multi-shell diffusion MRI data using convex optimization for fast and robust estimation.',
+        modality: 'Multi-shell diffusion MRI (4D NIfTI) with b-values and b-vectors, plus brain mask.',
+        keyParameters: 'Python: amico.core.setup(), amico.core.load_data(), amico.core.set_model("NODDI"), amico.core.fit()',
+        keyPoints: 'Requires multi-shell acquisition (recommended: b=0,1000,2000 s/mm2). Outputs NDI (neurite density), ODI (orientation dispersion), and fISO (isotropic fraction). Much faster than original NODDI MATLAB toolbox.',
+        typicalUse: 'Microstructural imaging for neurite density and orientation dispersion in white matter.',
+        docUrl: 'https://github.com/daducci/AMICO'
+      }
+    ]
   }
 };
 
-export const libraryOrder = ['FSL', 'AFNI', 'SPM', 'FreeSurfer', 'ANTs', 'MRtrix3', 'fMRIPrep', 'MRIQC'];
+export const libraryOrder = ['FSL', 'AFNI', 'SPM', 'FreeSurfer', 'ANTs', 'MRtrix3', 'fMRIPrep', 'MRIQC', 'Connectome Workbench', 'AMICO'];
 
 /**
  * Dummy nodes for visual workflow representation.
@@ -640,7 +765,13 @@ export const DOCKER_TAGS = {
     fMRIPrep: ['latest', 'unstable', '25.2.4', 'premask', '25.2.3', '25.2.2', '25.2.1', '25.2.0', 'pre-release', '25.1.4', '25.1.3', '25.1.2', '25.1.1', '25.1.0', '25.0.0'],
 
     // nipreps/mriqc - https://hub.docker.com/r/nipreps/mriqc/tags
-    MRIQC: ['latest', 'experimental', '25.0.0rc0', '24.0.2', '24.0.1', '24.0.0', '24.0.0rc8', '24.0.0rc7', '24.0.0rc6', '24.0.0rc5', '24.0.0rc4', '24.0.0rc3', '24.0.0rc2', '24.0.0rc1', '23.1.1']
+    MRIQC: ['latest', 'experimental', '25.0.0rc0', '24.0.2', '24.0.1', '24.0.0', '24.0.0rc8', '24.0.0rc7', '24.0.0rc6', '24.0.0rc5', '24.0.0rc4', '24.0.0rc3', '24.0.0rc2', '24.0.0rc1', '23.1.1'],
+
+    // khanlab/connectome-workbench - https://hub.docker.com/r/khanlab/connectome-workbench/tags
+    'Connectome Workbench': ['latest'],
+
+    // cookpa/amico-noddi - https://hub.docker.com/r/cookpa/amico-noddi/tags
+    AMICO: ['latest', '0.1.2', '0.1.1', '0.0.4']
 };
 
 /**
@@ -682,7 +813,8 @@ const MODALITY_ASSIGNMENTS = {
       'Brain Extraction': ['bet'],
       'Tissue Segmentation': ['fast', 'run_first_all'],
       'Registration': ['flirt', 'fnirt'],
-      'Pipelines': ['fsl_anat', 'siena', 'sienax']
+      'Pipelines': ['fsl_anat', 'siena', 'sienax'],
+      'Lesion Segmentation': ['bianca']
     },
     ANTs: {
       'Brain Extraction': ['antsBrainExtraction.sh'],
@@ -691,7 +823,7 @@ const MODALITY_ASSIGNMENTS = {
       'Cortical Thickness': ['antsCorticalThickness.sh', 'KellyKapowski']
     },
     FreeSurfer: {
-      'Surface Reconstruction': ['mri_convert', 'mri_watershed', 'mri_normalize', 'mri_segment', 'mris_inflate', 'mris_sphere'],
+      'Surface Reconstruction': ['recon-all', 'mri_convert', 'mri_watershed', 'mri_normalize', 'mri_segment', 'mris_inflate', 'mris_sphere'],
       'Parcellation': ['mri_aparc2aseg', 'mri_annotation2label', 'mris_ca_label', 'mri_label2vol'],
       'Morphometry': ['mris_anatomical_stats', 'mri_segstats', 'aparcstats2table', 'asegstats2table']
     },
@@ -699,13 +831,16 @@ const MODALITY_ASSIGNMENTS = {
       'Brain Extraction': ['3dSkullStrip', '@SSwarper'],
       'Bias Correction': ['3dUnifize'],
       'Registration': ['3dAllineate', '3dQwarp', '@auto_tlrc']
+    },
+    'Connectome Workbench': {
+      'Surface Registration': ['wb_command_surface_sphere_project_unproject']
     }
   },
   'Functional MRI': {
     FSL: {
       'Motion Correction': ['mcflirt'],
       'Slice Timing': ['slicetimer'],
-      'Distortion Correction': ['fugue', 'topup'],
+      'Distortion Correction': ['fugue', 'topup', 'applytopup', 'fsl_prepare_fieldmap', 'prelude'],
       'Smoothing': ['susan'],
       'Statistical Analysis': ['film_gls', 'flameo', 'randomise'],
       'ICA/Denoising': ['melodic', 'dual_regression']
@@ -733,6 +868,10 @@ const MODALITY_ASSIGNMENTS = {
     },
     MRIQC: {
       'Pipeline': ['mriqc']
+    },
+    'Connectome Workbench': {
+      'CIFTI Operations': ['wb_command_cifti_create_dense_timeseries', 'wb_command_cifti_separate'],
+      'Surface Smoothing': ['wb_command_cifti_smoothing', 'wb_command_metric_smoothing']
     }
   },
   'Diffusion MRI': {
@@ -740,7 +879,7 @@ const MODALITY_ASSIGNMENTS = {
       'Preprocessing': ['eddy', 'topup'],
       'Tensor Fitting': ['dtifit'],
       'Tractography': ['bedpostx', 'probtrackx2'],
-      'TBSS': ['tbss_1_preproc', 'tbss_2_reg', 'tbss_3_postreg', 'tbss_4_prestats']
+      'TBSS': ['tbss_1_preproc', 'tbss_2_reg', 'tbss_3_postreg', 'tbss_4_prestats', 'tbss_non_FA']
     },
     MRtrix3: {
       'Preprocessing': ['dwidenoise', 'mrdegibbs'],
@@ -749,6 +888,9 @@ const MODALITY_ASSIGNMENTS = {
     },
     FreeSurfer: {
       'Diffusion': ['dmri_postreg']
+    },
+    AMICO: {
+      'Microstructure Modeling': ['amico_noddi']
     }
   },
   'Arterial Spin Labeling': {
@@ -769,7 +911,7 @@ const MODALITY_ASSIGNMENTS = {
   'Utilities': {
     FSL: {
       'Image Math': ['fslmaths', 'fslstats', 'fslroi', 'fslmeants'],
-      'Volume Operations': ['fslsplit', 'fslmerge', 'fslreorient2std'],
+      'Volume Operations': ['fslsplit', 'fslmerge', 'fslreorient2std', 'robustfov'],
       'Warp Utilities': ['applywarp', 'invwarp', 'convertwarp'],
       'Clustering': ['cluster']
     },
