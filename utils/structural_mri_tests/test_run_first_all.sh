@@ -13,11 +13,12 @@ prepare_fsl_data
 # Generate template for reference
 make_template "$CWL" "$TOOL"
 
-# Create job YAML
+# Use 2mm T1 to keep memory usage manageable. The 1mm image causes
+# Docker OOM on systems with limited RAM.
 cat > "${JOB_DIR}/${TOOL}.yml" <<EOF
 input:
   class: File
-  path: "${T1W}"
+  path: "${T1W_2MM}"
 output: "first_out"
 EOF
 

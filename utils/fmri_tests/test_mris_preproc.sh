@@ -19,16 +19,17 @@ if [[ ! -d "$FS_SUBJECT_DIR2" ]]; then
   cp -a "$FS_SUBJECT_DIR" "$FS_SUBJECT_DIR2"
 fi
 
-# Ensure sphere.reg files exist with subject-specific names
+# Ensure target-named sphere.reg files exist in all subjects.
+# mris_preproc --target bert expects lh.bert.sphere.reg in every subject.
 SURF_LH_SPHERE_REG="${FS_SUBJECT_DIR}/surf/lh.sphere.reg"
 SURF_LH_BERT_SPHERE_REG="${FS_SUBJECT_DIR}/surf/lh.${FS_SUBJECT}.sphere.reg"
-SURF_LH_BERT2_SPHERE_REG="${FS_SUBJECT_DIR2}/surf/lh.${FS_SUBJECT2}.sphere.reg"
+SURF_LH_BERT2_TARGET_REG="${FS_SUBJECT_DIR2}/surf/lh.${FS_SUBJECT}.sphere.reg"
 
 if [[ -f "$SURF_LH_SPHERE_REG" && ! -f "$SURF_LH_BERT_SPHERE_REG" ]]; then
   cp "$SURF_LH_SPHERE_REG" "$SURF_LH_BERT_SPHERE_REG"
 fi
-if [[ -f "${FS_SUBJECT_DIR2}/surf/lh.sphere.reg" && ! -f "$SURF_LH_BERT2_SPHERE_REG" ]]; then
-  cp "${FS_SUBJECT_DIR2}/surf/lh.sphere.reg" "$SURF_LH_BERT2_SPHERE_REG"
+if [[ -f "${FS_SUBJECT_DIR2}/surf/lh.sphere.reg" && ! -f "$SURF_LH_BERT2_TARGET_REG" ]]; then
+  cp "${FS_SUBJECT_DIR2}/surf/lh.sphere.reg" "$SURF_LH_BERT2_TARGET_REG"
 fi
 
 cat > "${JOB_DIR}/${TOOL}.yml" <<EOF

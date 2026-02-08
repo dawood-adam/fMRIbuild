@@ -30,17 +30,24 @@ ASEG_MGZ="${FS_SUBJECT_DIR}/mri/aseg.mgz"
 [[ -f "$BRAIN_MGZ" ]] || die "Missing ${BRAIN_MGZ}"
 [[ -f "$ASEG_MGZ" ]]  || die "Missing ${ASEG_MGZ}"
 
-# Create a synthetic PET-like image from brain.mgz.
-# We convert to NIfTI to exercise the .nii.gz code path.
-# The image is just the structural brain — not real PET data, but
-# sufficient for validating CWL execution and output file production.
+# Create synthetic PET and matching segmentation at 2 mm isotropic.
+# Real PET is typically 2–4 mm and we must keep memory under Docker's limit
+# (full 256^3 conformed space needs >5 GB; 128^3 at 2 mm needs ~700 MB).
 SYNTHETIC_PET="${DERIVED_DIR}/synthetic_pet.nii.gz"
+ASEG_2MM="${DERIVED_DIR}/aseg_2mm.mgz"
 if [[ ! -f "$SYNTHETIC_PET" ]]; then
-  echo "Creating synthetic PET image from brain.mgz..."
-  docker_fs mri_convert "${BRAIN_MGZ}" "${SYNTHETIC_PET}" \
-    >/dev/null 2>&1 || die "Failed to create synthetic PET image"
+  echo "Creating 2 mm synthetic PET from brain.mgz..."
+  docker_fs mri_convert --voxsize 2 2 2 "${BRAIN_MGZ}" "${SYNTHETIC_PET}" \
+    >/dev/null 2>&1 || die "Failed to create synthetic PET"
+fi
+if [[ ! -f "$ASEG_2MM" ]]; then
+  echo "Resampling aseg to 2 mm (nearest-neighbor)..."
+  docker_fs mri_convert --voxsize 2 2 2 --resample_type nearest \
+    "${ASEG_MGZ}" "${ASEG_2MM}" \
+    >/dev/null 2>&1 || die "Failed to create 2 mm aseg"
 fi
 [[ -f "$SYNTHETIC_PET" ]] || die "Synthetic PET not created at ${SYNTHETIC_PET}"
+[[ -f "$ASEG_2MM" ]]      || die "2 mm aseg not created at ${ASEG_2MM}"
 
 # ── Generate CWL template for reference ───────────────────────────
 
@@ -63,9 +70,12 @@ input:
 psf: 4.0
 seg:
   class: File
-  path: "${ASEG_MGZ}"
+  path: "${ASEG_2MM}"
 output_dir: "gtmpvc_setA"
 regheader: true
+default_seg_merge: true
+ctab_default: true
+no_rescale: true
 EOF
 
 run_tool "$TOOL_A" "${JOB_DIR}/${TOOL_A}.yml" "$CWL"
@@ -87,14 +97,17 @@ input:
 psf: 6.0
 seg:
   class: File
-  path: "${ASEG_MGZ}"
+  path: "${ASEG_2MM}"
 output_dir: "gtmpvc_setB"
 regheader: true
+default_seg_merge: true
+ctab_default: true
+no_rescale: true
 EOF
 
 run_tool "$TOOL_B" "${JOB_DIR}/${TOOL_B}.yml" "$CWL"
 
-# ── Parameter Set C: No rescale ───────────────────────────────────
+# ── Parameter Set C: Higher PSF (PSF=8) ─────────────────────────
 
 TOOL_C="${TOOL}_setC"
 cat > "${JOB_DIR}/${TOOL_C}.yml" <<EOF
@@ -108,18 +121,20 @@ fs_license:
 input:
   class: File
   path: "${SYNTHETIC_PET}"
-psf: 4.0
+psf: 8.0
 seg:
   class: File
-  path: "${ASEG_MGZ}"
+  path: "${ASEG_2MM}"
 output_dir: "gtmpvc_setC"
 regheader: true
 no_rescale: true
+default_seg_merge: true
+ctab_default: true
 EOF
 
 run_tool "$TOOL_C" "${JOB_DIR}/${TOOL_C}.yml" "$CWL"
 
-# ── Parameter Set D: Auto-mask ────────────────────────────────────
+# ── Parameter Set D: PSF=3 ──────────────────────────────────────
 
 TOOL_D="${TOOL}_setD"
 cat > "${JOB_DIR}/${TOOL_D}.yml" <<EOF
@@ -133,13 +148,15 @@ fs_license:
 input:
   class: File
   path: "${SYNTHETIC_PET}"
-psf: 4.0
+psf: 3.0
 seg:
   class: File
-  path: "${ASEG_MGZ}"
+  path: "${ASEG_2MM}"
 output_dir: "gtmpvc_setD"
 regheader: true
-auto_mask: 0.1
+default_seg_merge: true
+ctab_default: true
+no_rescale: true
 EOF
 
 run_tool "$TOOL_D" "${JOB_DIR}/${TOOL_D}.yml" "$CWL"
@@ -161,10 +178,13 @@ input:
 psf: 4.0
 seg:
   class: File
-  path: "${ASEG_MGZ}"
+  path: "${ASEG_2MM}"
 output_dir: "gtmpvc_setE"
 regheader: true
 no_reduce_fov: true
+default_seg_merge: true
+ctab_default: true
+no_rescale: true
 EOF
 
 run_tool "$TOOL_E" "${JOB_DIR}/${TOOL_E}.yml" "$CWL"
@@ -180,8 +200,8 @@ if [[ -f "$SUMMARY_FILE" ]]; then
 fi
 echo ""
 
-PASS_COUNT="$(awk -F $'\t' 'NR>1 && $2=="PASS" {c++} END {print c+0}' "$SUMMARY_FILE")"
-FAIL_COUNT="$(awk -F $'\t' 'NR>1 && $2=="FAIL" {c++} END {print c+0}' "$SUMMARY_FILE")"
+PASS_COUNT="$(awk -F $'\t' '$2=="PASS" {c++} END {print c+0}' "$SUMMARY_FILE")"
+FAIL_COUNT="$(awk -F $'\t' '$2=="FAIL" {c++} END {print c+0}' "$SUMMARY_FILE")"
 echo "Results: PASS=${PASS_COUNT} FAIL=${FAIL_COUNT}"
 
 if [[ "$FAIL_COUNT" -gt 0 ]]; then

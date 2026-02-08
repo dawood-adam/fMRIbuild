@@ -99,15 +99,29 @@ docker_ants() {
     ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS="$ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS" \
     "$@"
 }
-docker_fs()   { _docker_run "$FS_IMAGE"   "$@"; }
+docker_fs() {
+  if [[ -n "${LICENSE_FILE:-}" && -f "$LICENSE_FILE" ]]; then
+    _docker_run "$FS_IMAGE" env FS_LICENSE="$LICENSE_FILE" "$@"
+  else
+    _docker_run "$FS_IMAGE" "$@"
+  fi
+}
 docker_afni() { _docker_run "$AFNI_IMAGE" "$@"; }
 
 copy_from_fsl_image() {
   local src_rel="$1" dest="$2"
   docker_fsl /bin/sh -c "
-    for d in \"\${FSLDIR:-}\" /usr/local/fsl /usr/share/fsl /opt/fsl; do
+    for d in \"\${FSLDIR:-}\" /usr/local/fsl /usr/share/fsl /opt/fsl /usr/share/data/fsl-mni152-templates; do
       if [ -n \"\$d\" ] && [ -f \"\$d/${src_rel}\" ]; then
         cp \"\$d/${src_rel}\" \"${dest}\"
+        exit 0
+      fi
+    done
+    # Also try the filename directly under template dirs
+    local base=\$(basename \"${src_rel}\")
+    for d in /usr/share/data/fsl-mni152-templates; do
+      if [ -f \"\$d/\$base\" ]; then
+        cp \"\$d/\$base\" \"${dest}\"
         exit 0
       fi
     done
@@ -146,7 +160,7 @@ copy_from_afni_image() {
 make_template() {
   local cwl_file="$1" tool_name="$2"
   local tmpl="${JOB_DIR}/${tool_name}_template.yml"
-  "$CWLTOOL_BIN" --make-template "$cwl_file" > "$tmpl" 2>/dev/null || true
+  (cd /tmp && "$CWLTOOL_BIN" --make-template "$cwl_file") > "$tmpl" 2>/dev/null || true
 }
 
 # ── Verification & run ─────────────────────────────────────────────
@@ -202,16 +216,16 @@ run_tool() {
   echo "  CWL:  ${cwl_file}"
   echo "  Job:  ${job_file}"
 
-  # Validate
-  if ! "$CWLTOOL_BIN" --validate "$cwl_file" >>"$log_file" 2>&1; then
+  # Validate (run from /tmp to avoid Docker+WSL os.getcwd() breakage)
+  if ! (cd /tmp && "$CWLTOOL_BIN" --validate "$cwl_file") >>"$log_file" 2>&1; then
     echo "  Result: FAIL (CWL validation failed)"
     RUN_TOOL_STATUS=1
     echo -e "${name}\tFAIL" >>"$SUMMARY_FILE"
     return 0
   fi
 
-  # Execute
-  if "$CWLTOOL_BIN" "${CWLTOOL_ARGS[@]}" --outdir "$tool_out_dir" "$cwl_file" "$job_file" \
+  # Execute (run from /tmp to avoid Docker+WSL os.getcwd() breakage)
+  if (cd /tmp && "$CWLTOOL_BIN" "${CWLTOOL_ARGS[@]}" --outdir "$tool_out_dir" "$cwl_file" "$job_file") \
       >"$out_json" 2>"$log_file"; then
     if verify_outputs "$out_json" >>"$log_file" 2>&1; then
       status="PASS"
@@ -235,6 +249,7 @@ prepare_fsl_data() {
   local t1="${DATA_DIR}/MNI152_T1_1mm.nii.gz"
   local t1_2mm="${DATA_DIR}/MNI152_T1_2mm.nii.gz"
   local t1_brain="${DATA_DIR}/MNI152_T1_1mm_brain.nii.gz"
+  local t1_2mm_brain="${DATA_DIR}/MNI152_T1_2mm_brain.nii.gz"
   local t1_mask="${DATA_DIR}/MNI152_T1_1mm_brain_mask.nii.gz"
   local t1_2mm_mask="${DATA_DIR}/MNI152_T1_2mm_brain_mask_dil.nii.gz"
 
@@ -248,6 +263,11 @@ prepare_fsl_data() {
   if [[ ! -f "$t1_brain" ]]; then
     copy_from_fsl_image "data/standard/MNI152_T1_1mm_brain.nii.gz" "$t1_brain" || true
   fi
+  if [[ ! -f "$t1_2mm_brain" ]]; then
+    copy_from_fsl_image "data/standard/MNI152_T1_2mm_brain.nii.gz" "$t1_2mm_brain" \
+      || copy_from_fsl_image "data/fsl-mni152-templates/MNI152_T1_2mm_brain.nii.gz" "$t1_2mm_brain" \
+      || true
+  fi
   if [[ ! -f "$t1_mask" ]]; then
     copy_from_fsl_image "data/standard/MNI152_T1_1mm_brain_mask.nii.gz" "$t1_mask" || true
   fi
@@ -259,6 +279,7 @@ prepare_fsl_data() {
   T1W="$t1"
   T1W_2MM="$t1_2mm"
   T1W_BRAIN="$t1_brain"
+  T1W_2MM_BRAIN="$t1_2mm_brain"
   T1W_MASK="$t1_mask"
   T1W_2MM_MASK="$t1_2mm_mask"
 }

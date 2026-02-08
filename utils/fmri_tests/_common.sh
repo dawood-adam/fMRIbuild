@@ -153,6 +153,7 @@ copy_from_fs_image() {
 make_template() {
   local cwl_file="$1" tool_name="$2"
   local tmpl="${JOB_DIR}/${tool_name}_template.yml"
+  cd "$ROOT_DIR"
   "$CWLTOOL_BIN" --make-template "$cwl_file" > "$tmpl" 2>/dev/null || true
 }
 
@@ -209,6 +210,9 @@ run_tool() {
   echo "  CWL:  ${cwl_file}"
   echo "  Job:  ${job_file}"
 
+  # Ensure valid cwd (cwltool temp dir cleanup can invalidate it)
+  cd "$ROOT_DIR"
+
   # Validate
   if ! "$CWLTOOL_BIN" --validate "$cwl_file" >>"$log_file" 2>&1; then
     echo "  Result: FAIL (CWL validation failed)"
@@ -217,13 +221,21 @@ run_tool() {
     return 0
   fi
 
-  # Execute
-  if "$CWLTOOL_BIN" "${CWLTOOL_ARGS[@]}" --outdir "$tool_out_dir" "$cwl_file" "$job_file" \
+  # Execute (reset cwd again in case validate changed it)
+  cd "$ROOT_DIR"
+  # Use a native WSL temp dir for cwltool output to avoid 9P filesystem
+  # memory pressure on /mnt/c/ mounts, then copy results back
+  local native_out="/tmp/cwl_out_${name}"
+  rm -rf "$native_out"
+  mkdir -p "$native_out"
+  if "$CWLTOOL_BIN" "${CWLTOOL_ARGS[@]}" --outdir "$native_out" "$cwl_file" "$job_file" \
       >"$out_json" 2>"$log_file"; then
+    cp -a "$native_out"/. "$tool_out_dir"/ 2>/dev/null || true
     if verify_outputs "$out_json" >>"$log_file" 2>&1; then
       status="PASS"
     fi
   fi
+  rm -rf "$native_out"
 
   if [[ "$status" == "PASS" ]]; then
     RUN_TOOL_STATUS=0

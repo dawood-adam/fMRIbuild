@@ -46,7 +46,7 @@ mask:
   class: File
   path: $DATA_DIR/mask.nii.gz
 output: eddy_out
-data_is_shelled: true
+nvoxhp: 400
 EOF
 
 # Step 4: Run tool

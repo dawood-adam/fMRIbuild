@@ -10,25 +10,37 @@ CWL="${CWL_DIR}/${LIB}/${TOOL}.cwl"
 
 prepare_afni_data
 
-# SSwarper needs a base template. Use MNI152 2mm as base.
-BASE_TEMPLATE="${DATA_DIR}/MNI152_T1_2mm.nii.gz"
-if [[ ! -f "$BASE_TEMPLATE" ]]; then
-  prepare_fsl_data
-  BASE_TEMPLATE="$T1W_2MM"
+# @SSwarper requires a 4-volume template dataset (MNI152_2009_template_SSW.nii.gz).
+# Download from AFNI if not already present.
+SSW_TEMPLATE="${DATA_DIR}/MNI152_2009_template_SSW.nii.gz"
+if [[ ! -f "$SSW_TEMPLATE" ]] || [[ $(wc -c < "$SSW_TEMPLATE") -lt 1000 ]]; then
+  echo "Downloading MNI152_2009_template_SSW.nii.gz for @SSwarper..."
+  rm -f "$SSW_TEMPLATE"
+  curl -fsSL -o "$SSW_TEMPLATE" \
+    "https://afni.nimh.nih.gov/pub/dist/atlases/afni_atlases_dist/MNI152_2009_template_SSW.nii.gz" \
+    || die "Failed to download SSwarper template"
 fi
 
 # Generate template for reference
 make_template "$CWL" "$TOOL"
 
-# Create job YAML
+# Use 2mm T1 as input (1mm is too slow for testing) and skip warping
+# to keep the test fast. This still validates skull-stripping.
+# Also disable extra QC images to reduce runtime.
 cat > "${JOB_DIR}/${TOOL}.yml" <<EOF
 input:
   class: File
-  path: "${T1W}"
+  path: "${T1W_2MM}"
 base:
   class: File
-  path: "${BASE_TEMPLATE}"
+  path: "${SSW_TEMPLATE}"
 subid: "sub01"
+odir: "."
+skipwarp: true
+extra_qc_off: true
 EOF
 
+# @SSwarper needs a writable container filesystem (writes temp files
+# outside /tmp). Use --no-read-only so cwltool does not pass --read-only.
+CWLTOOL_ARGS+=("--no-read-only")
 run_tool "$TOOL" "${JOB_DIR}/${TOOL}.yml" "$CWL"

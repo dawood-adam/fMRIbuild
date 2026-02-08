@@ -38,7 +38,9 @@ echo "Template saved to $OUTPUT_DIR/template.yml" | tee -a "$RESULTS_FILE"
 
 # Step 3: Create job YAML
 cat > "$OUTPUT_DIR/job.yml" << EOF
-samples: $BEDPOSTX_DIR/merged
+samples_dir:
+  class: Directory
+  path: $BEDPOSTX_DIR
 mask:
   class: File
   path: $DATA_DIR/mask.nii.gz

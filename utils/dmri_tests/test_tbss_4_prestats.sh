@@ -18,15 +18,20 @@ RESULTS_FILE="$OUTPUT_DIR/results.txt"
 echo "=== Testing $TOOL_NAME ===" | tee "$RESULTS_FILE"
 echo "Date: $(date)" | tee -a "$RESULTS_FILE"
 
-# Ensure tbss_3 output exists
+# Ensure tbss_3 output exists (FA and stats directories)
 FA_INPUT="$INTERMEDIATE_DIR/tbss_FA_step3"
+STATS_INPUT="$INTERMEDIATE_DIR/tbss_stats_step3"
 if [[ ! -d "$FA_INPUT" ]]; then
     FA_INPUT="$OUTPUT_BASE/tbss_3_postreg/FA"
 fi
-if [[ ! -d "$FA_INPUT" ]]; then
+if [[ ! -d "$STATS_INPUT" ]]; then
+    STATS_INPUT="$OUTPUT_BASE/tbss_3_postreg/stats"
+fi
+if [[ ! -d "$FA_INPUT" || ! -d "$STATS_INPUT" ]]; then
     echo "Running tbss_3_postreg first..." | tee -a "$RESULTS_FILE"
     bash "$SCRIPT_DIR/test_tbss_3_postreg.sh"
     FA_INPUT="$INTERMEDIATE_DIR/tbss_FA_step3"
+    STATS_INPUT="$INTERMEDIATE_DIR/tbss_stats_step3"
 fi
 
 # Step 1: Validate CWL
@@ -43,6 +48,9 @@ threshold: 0.2
 fa_directory:
   class: Directory
   path: $FA_INPUT
+stats_directory:
+  class: Directory
+  path: $STATS_INPUT
 EOF
 
 # Step 4: Run tool

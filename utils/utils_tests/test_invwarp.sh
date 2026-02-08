@@ -17,22 +17,13 @@ FNIRT_WARP="${DERIVED_DIR}/fnirt_warp.nii.gz"
 FNIRT_OUT="${DERIVED_DIR}/fnirt_warped.nii.gz"
 AFFINE_MAT="${DERIVED_DIR}/flirt_t1_affine.mat"
 
-if [[ ! -f "$AFFINE_MAT" ]]; then
-  echo "Generating FLIRT affine matrix..."
-  docker_fsl flirt \
-    -in "$T1W_2MM" -ref "$T1W" \
-    -omat "$AFFINE_MAT" \
-    -dof 6
-fi
-
 if [[ ! -f "$FNIRT_WARP" ]]; then
-  echo "Generating FNIRT warp field (coarse, for testing)..."
+  echo "Generating FNIRT warp field (coarse, 2mm, for testing)..."
   docker_fsl fnirt \
-    --in="$T1W_2MM" --ref="$T1W" \
-    --aff="$AFFINE_MAT" \
+    --in="$T1W_2MM" --ref="$T1W_2MM" \
     --cout="$FNIRT_WARP" \
     --iout="$FNIRT_OUT" \
-    --warpres=10,10,10
+    --warpres=20,20,20
 fi
 
 # ── Test 1: Invert the warp field ────────────────────────────

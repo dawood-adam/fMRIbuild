@@ -42,7 +42,7 @@ cat > "$OUTPUT_DIR/job.yml" << EOF
 fa_directory:
   class: Directory
   path: $FA_INPUT
-use_fmrib: true
+study_specific: true
 EOF
 
 # Step 4: Run tool
@@ -57,15 +57,15 @@ fi
 
 # Step 5: Check outputs
 echo "--- Output validation ---" | tee -a "$RESULTS_FILE"
-check_file_exists "$OUTPUT_DIR/mean_FA.nii.gz" "mean_FA" "$RESULTS_FILE" || PASS=false
-check_file_nonempty "$OUTPUT_DIR/mean_FA.nii.gz" "mean_FA" "$RESULTS_FILE" || PASS=false
-check_file_exists "$OUTPUT_DIR/mean_FA_skeleton.nii.gz" "mean_FA_skeleton" "$RESULTS_FILE" || PASS=false
-check_file_exists "$OUTPUT_DIR/all_FA.nii.gz" "all_FA" "$RESULTS_FILE" || PASS=false
+check_file_exists "$OUTPUT_DIR/stats/mean_FA.nii.gz" "mean_FA" "$RESULTS_FILE" || PASS=false
+check_file_nonempty "$OUTPUT_DIR/stats/mean_FA.nii.gz" "mean_FA" "$RESULTS_FILE" || PASS=false
+check_file_exists "$OUTPUT_DIR/stats/mean_FA_skeleton.nii.gz" "mean_FA_skeleton" "$RESULTS_FILE" || PASS=false
+check_file_exists "$OUTPUT_DIR/stats/all_FA.nii.gz" "all_FA" "$RESULTS_FILE" || PASS=false
 
 # Step 6: Header checks
 echo "--- Header checks ---" | tee -a "$RESULTS_FILE"
-if [[ -f "$OUTPUT_DIR/mean_FA.nii.gz" ]]; then
-    check_nifti_header "$OUTPUT_DIR/mean_FA.nii.gz" "mean_FA" "$RESULTS_FILE" || PASS=false
+if [[ -f "$OUTPUT_DIR/stats/mean_FA.nii.gz" ]]; then
+    check_nifti_header "$OUTPUT_DIR/stats/mean_FA.nii.gz" "mean_FA" "$RESULTS_FILE" || PASS=false
 fi
 
 # Save intermediate for tbss_4

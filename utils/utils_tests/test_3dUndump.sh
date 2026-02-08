@@ -42,10 +42,13 @@ input:
   class: File
   path: ${COORD_FILE}
 prefix: undump_dimen
-dimen: "91 109 91"
+dimen:
+  - 91
+  - 109
+  - 91
 datum: float
 srad: 3.0
-xyz: true
+ijk: true
 EOF
 run_tool "${TOOL}_dimen" "${JOB_DIR}/${TOOL}_dimen.yml" "$CWL"
 

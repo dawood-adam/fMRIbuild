@@ -42,7 +42,7 @@ cat > "$OUTPUT_DIR/job.yml" << EOF
 fa_directory:
   class: Directory
   path: $FA_INPUT
-use_fmrib_target: true
+find_best_target: true
 EOF
 
 # Step 4: Run tool

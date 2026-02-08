@@ -23,7 +23,7 @@ fixed_image:
   path: "${BOLD_MEAN}"
 moving_image:
   class: File
-  path: "${BOLD}"
+  path: "${DERIVED_DIR}/bold_20.nii.gz"
 output_prefix: "motcorr_"
 metric: "MI[{fixed},{moving},1,16,Regular,0.1]"
 transform: "Rigid[0.1]"

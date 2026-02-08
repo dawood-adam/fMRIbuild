@@ -10,28 +10,32 @@ CWL="${CWL_DIR}/${LIB}/${TOOL}.cwl"
 
 prepare_fsl_data
 
-# Dependency: needs affine matrix from flirt
-FLIRT_MAT="$(first_match "${OUT_DIR}/flirt/flirt_affine.mat" 2>/dev/null || true)"
-if [[ -z "$FLIRT_MAT" ]]; then
-  echo "Running prerequisite: flirt..."
-  bash "${SCRIPT_DIR}/test_flirt.sh"
-  FLIRT_MAT="$(first_match "${OUT_DIR}/flirt/flirt_affine.mat")"
+# Generate a 2mm→2mm affine first (fnirt with 1mm input causes OOM
+# on systems with limited RAM). We create a quick flirt alignment
+# between the 2mm T1 and itself to produce an identity-like matrix.
+FNIRT_AFFINE="${DERIVED_DIR}/fnirt_flirt_2mm.mat"
+if [[ ! -f "$FNIRT_AFFINE" ]]; then
+  echo "Creating 2mm affine matrix for fnirt..."
+  docker_fsl flirt \
+    -in "$T1W_2MM" -ref "$T1W_2MM" \
+    -omat "$FNIRT_AFFINE" -dof 12
 fi
+[[ -f "$FNIRT_AFFINE" ]] || die "Failed to create affine matrix"
 
 # Generate template for reference
 make_template "$CWL" "$TOOL"
 
-# Create job YAML
+# Use 2mm→2mm non-linear registration to keep memory manageable.
 cat > "${JOB_DIR}/${TOOL}.yml" <<EOF
 input:
   class: File
-  path: "${T1W}"
+  path: "${T1W_2MM}"
 reference:
   class: File
   path: "${T1W_2MM}"
 affine:
   class: File
-  path: "${FLIRT_MAT}"
+  path: "${FNIRT_AFFINE}"
 cout: "fnirt_coeff"
 iout: "fnirt_warped"
 fout: "fnirt_field"

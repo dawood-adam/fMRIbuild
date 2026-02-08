@@ -18,6 +18,7 @@ notes/
 /public/temp/
 
 # Testing artifacts (downloaded datasets and tool outputs)
+tests/
 tests/data/
 tests/work/
 utils/structural_mri_tests/jobs/
@@ -44,8 +45,27 @@ utils/pet_tests/logs/
 utils/pet_tests/data/
 utils/pet_tests/derived/
 utils/pet_tests/summary.tsv
+utils/fmri_tests/jobs/
+utils/fmri_tests/out/
+utils/fmri_tests/logs/
+utils/fmri_tests/data/
+utils/fmri_tests/derived/
+utils/fmri_tests/summary.tsv
+utils/dmri_tests/jobs/
+utils/dmri_tests/out/
+utils/dmri_tests/logs/
+utils/dmri_tests/data/
+utils/dmri_tests/derived/
+utils/dmri_tests/summary.tsv
+utils/utils_tests/jobs/
+utils/utils_tests/out/
+utils/utils_tests/logs/
+utils/utils_tests/data/
+utils/utils_tests/derived/
+utils/utils_tests/summary.tsv
+
+# Windows artifacts
+nul
 
 # Claude Code config (local only)
 .claude/
-fmri_tools_reference.md
-neuroimaging_tools_reference.md

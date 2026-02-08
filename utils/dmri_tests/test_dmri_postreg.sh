@@ -33,7 +33,7 @@ subjects_dir:
   path: $DATA_DIR/freesurfer_subjects
 fs_license:
   class: File
-  path: $DATA_DIR/fs_license.txt
+  path: $PROJECT_ROOT/tests/data/freesurfer/license.txt
 input:
   class: File
   path: $DATA_DIR/b0.nii.gz
@@ -44,7 +44,7 @@ EOF
 echo "--- Running $TOOL_NAME ---" | tee -a "$RESULTS_FILE"
 echo "NOTE: This tool requires a valid FreeSurfer license. Test may fail with dummy license." | tee -a "$RESULTS_FILE"
 PASS=true
-if cwltool --outdir "$OUTPUT_DIR" "$CWL_FILE" "$OUTPUT_DIR/job.yml" >> "$RESULTS_FILE" 2>&1; then
+if cwltool --no-read-only --outdir "$OUTPUT_DIR" "$CWL_FILE" "$OUTPUT_DIR/job.yml" >> "$RESULTS_FILE" 2>&1; then
     echo -e "${GREEN}PASS: $TOOL_NAME execution${NC}" | tee -a "$RESULTS_FILE"
 else
     echo -e "${RED}FAIL: $TOOL_NAME execution${NC}" | tee -a "$RESULTS_FILE"

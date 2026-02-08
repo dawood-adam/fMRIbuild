@@ -26,4 +26,8 @@ subject: "${FS_SUBJECT}"
 output: "aparc2aseg.mgz"
 EOF
 
+# mri_aparc2aseg needs ~1.3GB and can get OOM-killed in Docker.
+# --no-read-only gives Docker a writable overlay which may reduce
+# memory pressure from copy-on-write buffering.
+CWLTOOL_ARGS+=("--no-read-only")
 run_tool "$TOOL" "${JOB_DIR}/${TOOL}.yml" "$CWL"

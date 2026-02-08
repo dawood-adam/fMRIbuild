@@ -31,4 +31,6 @@ input:
 output: "bert_norm.mgz"
 EOF
 
+# FreeSurfer container can get OOM-killed due to read-only overlay overhead.
+CWLTOOL_ARGS+=("--no-read-only")
 run_tool "$TOOL" "${JOB_DIR}/${TOOL}.yml" "$CWL"

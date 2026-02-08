@@ -19,8 +19,6 @@ if [[ ! -f "$ANTS_AFFINE" ]]; then
   docker_ants antsRegistration \
     -d 3 \
     --output "${DERIVED_DIR}/ants_quick_" \
-    --fixed-image "$T1_RES" \
-    --moving-image "$T1_RES" \
     --metric "MI[$T1_RES,$T1_RES,1,32,Regular,0.25]" \
     --transform "Rigid[0.1]" \
     --convergence "[10,1e-6,5]" \

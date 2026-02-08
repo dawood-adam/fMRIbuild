@@ -10,13 +10,16 @@ CWL="${CWL_DIR}/${LIB}/${TOOL}.cwl"
 
 prepare_fsl_data
 
-# Dependency: needs brain-extracted image from bet
-BET_OUT="$(first_match "${OUT_DIR}/bet/bet_out.nii.gz" "${OUT_DIR}/bet/bet_out.nii" 2>/dev/null || true)"
-if [[ -z "$BET_OUT" ]]; then
-  echo "Running prerequisite: bet..."
-  bash "${SCRIPT_DIR}/test_bet.sh"
-  BET_OUT="$(first_match "${OUT_DIR}/bet/bet_out.nii.gz" "${OUT_DIR}/bet/bet_out.nii")"
+# Use the 2mm brain-extracted image to keep memory usage manageable.
+# The 1mm brain causes Docker OOM on systems with limited RAM.
+FAST_INPUT="$T1W_2MM_BRAIN"
+if [[ ! -f "$FAST_INPUT" ]]; then
+  # Fallback: use bet output from 2mm
+  echo "Running prerequisite: bet on 2mm T1..."
+  docker_fsl bet "$T1W_2MM" "${DERIVED_DIR}/bet_2mm_out" -R
+  FAST_INPUT="${DERIVED_DIR}/bet_2mm_out.nii.gz"
 fi
+[[ -f "$FAST_INPUT" ]] || die "Missing brain-extracted input for fast"
 
 # Generate template for reference
 make_template "$CWL" "$TOOL"
@@ -25,7 +28,7 @@ make_template "$CWL" "$TOOL"
 cat > "${JOB_DIR}/${TOOL}.yml" <<EOF
 input:
   class: File
-  path: "${BET_OUT}"
+  path: "${FAST_INPUT}"
 output: "fast_out"
 EOF
 

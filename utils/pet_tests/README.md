@@ -22,15 +22,17 @@ bash utils/pet_tests/test_mri_gtmpvc.sh --rerun-passed
 
 ## What it tests
 
-`test_mri_gtmpvc.sh` runs 5 parameter sets against a synthetic PET image (created from `bert/mri/brain.mgz`):
+`test_mri_gtmpvc.sh` runs 5 parameter sets against a synthetic PET image (created from `bert/mri/brain.mgz` at 2 mm isotropic to keep memory manageable):
 
 | Set | Description | Key flags |
 |-----|-------------|-----------|
-| A | Minimal with regheader | `--psf 4 --regheader` |
-| B | Higher PSF | `--psf 6 --regheader` |
-| C | No rescale | `--psf 4 --regheader --no-rescale` |
-| D | Auto-mask | `--psf 4 --regheader --auto-mask 0.1` |
-| E | No reduce FOV | `--psf 4 --regheader --no-reduce-fov` |
+| A | Minimal, PSF=4 | `--psf 4 --regheader --no-rescale --default-seg-merge --ctab-default` |
+| B | Higher PSF | `--psf 6 --regheader --no-rescale --default-seg-merge --ctab-default` |
+| C | Even higher PSF | `--psf 8 --regheader --no-rescale --default-seg-merge --ctab-default` |
+| D | Lower PSF | `--psf 3 --regheader --no-rescale --default-seg-merge --ctab-default` |
+| E | No reduce FOV | `--psf 4 --regheader --no-reduce-fov --no-rescale --default-seg-merge --ctab-default` |
+
+All sets use `--no-rescale` because the synthetic data lacks the Pons (id 174) reference region needed for rescaling, and `--ctab-default --default-seg-merge` for tissue type handling with `aseg.mgz`.
 
 Each set validates:
 1. CWL file passes `cwltool --validate`
